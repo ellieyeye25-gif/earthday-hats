@@ -439,6 +439,18 @@ textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75
 <!-- PDF TARGET (hidden) -->
 <div id="pdf-target" style="display:none"></div>
 
+<script>
+(function(){
+  const sel = document.getElementById('reg-seat');
+  if(!sel) return;
+  for(let i=1;i<=35;i++){
+    const o = document.createElement('option');
+    o.value = i; o.textContent = i;
+    sel.appendChild(o);
+  }
+})();
+</script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
@@ -516,15 +528,7 @@ let S = {
 let unsubOthers = null;
 let unsubBlueOthers = null;
 
-// ── SEAT (1–35) ──
-(function initSeats(){
-  const sel = document.getElementById('reg-seat');
-  for(let i=1;i<=35;i++){
-    const o = document.createElement('option');
 
-    sel.appendChild(o);
-  }
-})();
 
 window.toggleHat = (card) => { card.classList.toggle('selected'); checkReg(); };
 window.checkReg = () => {
