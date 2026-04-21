@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>地球日 × 六頂思考帽</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Syne:wght@700;800&display=swap');
+:root {
+  --bg:#f5f0e8; --bg2:#e8e2d4; --ink:#1a1a14; --ink2:#4a4a3a; --ink3:#8a8070;
+  --green:#2d6a35; --green2:#4a9e55; --green-bg:#eef7ef;
+  --red:#c0392b; --red-bg:#fdf0ef;
+  --yellow:#c8880a; --yellow-bg:#fef9ec;
+  --black-h:#2a2a2a; --black-bg:#f0f0ec;
+  --blue:#1a5fa8; --blue-bg:#eef4fb;
+  --white-h:#7a7060; --white-bg:#f8f7f4;
+  --r:14px; --shadow:0 2px 14px rgba(26,26,20,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:15px}
+.screen{display:none;min-height:100vh;flex-direction:column;animation:fadeIn .3s ease}
+.screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* TOPBAR */
+.topbar{background:var(--ink);color:#f5f0e8;padding:13px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-title{font-family:'Syne',sans-serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
+.topbar-step{font-size:11px;opacity:.5;letter-spacing:.08em}
+
+/* HERO */
+.hero{background:var(--ink);color:#f5f0e8;padding:26px 22px 22px}
+.hero-eye{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--green2);margin-bottom:9px;display:flex;align-items:center;gap:8px}
+.hero-eye::before{content:'';width:22px;height:2px;background:var(--green2)}
+.hero h1{font-family:'Syne',sans-serif;font-size:26px;line-height:1.18;margin-bottom:7px}
+.hero h1 em{color:var(--green2);font-style:normal}
+.hero p{font-size:12px;color:rgba(245,240,232,.58);line-height:1.85}
+
+/* CONTENT */
+.content{padding:20px;flex:1}
+.field-label{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);margin-bottom:9px;margin-top:22px}
+.field-label:first-child{margin-top:0}
+
+/* INPUTS */
+.sel-input,.input-text{width:100%;background:#fff;border:2px solid transparent;border-radius:var(--r);color:var(--ink);font-family:'Noto Sans TC',sans-serif;font-size:16px;padding:13px 16px;outline:none;box-shadow:var(--shadow);transition:border-color .2s;appearance:none}
+.sel-input:focus,.input-text:focus{border-color:var(--green)}
+textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75}
+
+
+
+/* HAT GRID */
+.hats-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.hat-card{background:#fff;border:2px solid transparent;border-radius:var(--r);padding:13px;cursor:pointer;position:relative;box-shadow:var(--shadow);transition:all .18s}
+.hat-card.selected{border-color:currentColor}
+.hat-card[data-hat="white"]{color:var(--white-h)}
+.hat-card[data-hat="red"]{color:var(--red)}
+.hat-card[data-hat="yellow"]{color:var(--yellow)}
+.hat-card[data-hat="black"]{color:var(--black-h)}
+.hat-card[data-hat="green"]{color:var(--green)}
+.hat-card[data-hat="blue"]{color:var(--blue)}
+.hat-emoji{font-size:22px;margin-bottom:4px}
+.hat-name{font-size:13px;font-weight:700;color:var(--ink)}
+.hat-role{font-size:11px;color:var(--ink3);line-height:1.4;margin-top:2px}
+.hat-check{position:absolute;top:9px;right:9px;width:17px;height:17px;border-radius:50%;background:currentColor;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .18s}
+.hat-check::after{content:'✓';font-size:9px;color:#fff;font-weight:900}
+.hat-card[data-hat="white"] .hat-check::after{color:var(--ink)}
+.hat-card.selected .hat-check{opacity:1}
+
+/* CONFIRM MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,26,20,.6);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s}
+.modal-overlay.hidden{display:none}
+.modal-box{background:#fff;border-radius:20px 20px 0 0;padding:26px 22px 38px;width:100%;max-width:520px}
+.modal-title{font-family:'Syne',sans-serif;font-size:18px;margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--ink3);margin-bottom:18px;line-height:1.7}
+.modal-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--bg2)}
+.modal-row:last-of-type{border-bottom:none;margin-bottom:16px}
+.modal-label{font-size:12px;color:var(--ink3);letter-spacing:.06em}
+.modal-val{font-size:14px;font-weight:700}
+.modal-btns{display:flex;gap:10px}
+.modal-btns .btn{flex:1}
+
+/* RESUME MODAL */
+.resume-box{background:var(--green-bg);border:2px solid rgba(45,106,53,.3);border-radius:var(--r);padding:16px;margin-bottom:16px}
+.resume-title{font-size:14px;font-weight:700;margin-bottom:6px}
+.resume-desc{font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:14px}
+
+/* ACTION LIST */
+.cat-tabs{display:flex;gap:8px;overflow-x:auto;padding:14px 20px 0;scrollbar-width:none}
+.cat-tabs::-webkit-scrollbar{display:none}
+.cat-tab{flex-shrink:0;background:#fff;border:2px solid transparent;border-radius:30px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--ink3);box-shadow:0 1px 5px rgba(26,26,20,.08);transition:all .18s}
+.cat-tab.active{background:var(--ink);color:#f5f0e8}
+.actions-wrap{padding:10px 20px 0;flex:1;overflow-y:auto}
+.cat-section{margin-bottom:18px}
+.cat-title{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin-bottom:9px;display:flex;align-items:center;gap:8px}
+.cat-title::after{content:'';flex:1;height:1px;background:var(--bg2)}
+.action-item{display:flex;align-items:flex-start;gap:11px;padding:11px 13px;margin-bottom:6px;background:#fff;border:2px solid transparent;border-radius:var(--r);cursor:pointer;box-shadow:0 1px 5px rgba(26,26,20,.07);transition:all .18s}
+.action-item.selected{background:var(--green-bg);border-color:var(--green2)}
+.action-num{min-width:25px;height:25px;border-radius:7px;background:var(--bg2);color:var(--ink3);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;transition:all .18s}
+.action-item.selected .action-num{background:var(--green);color:#fff}
+.action-text{font-size:13px;line-height:1.6;flex:1}
+.action-rank{min-width:20px;height:20px;border-radius:50%;background:var(--green);color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:opacity .18s;margin-top:2px}
+.action-item.selected .action-rank{opacity:1}
+
+/* STICKY FOOTER */
+.sticky-footer{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--bg2);padding:13px 20px;z-index:50}
+.sel-status{font-size:12px;color:var(--ink3);margin-bottom:9px;text-align:center}
+.sel-status strong{color:var(--green)}
+
+/* BUTTONS */
+.btn{width:100%;border:none;border-radius:var(--r);font-family:'Noto Sans TC',sans-serif;font-size:15px;font-weight:700;padding:14px;cursor:pointer;transition:all .18s;letter-spacing:.03em}
+.btn-primary{background:var(--ink);color:#f5f0e8}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{background:var(--bg2);color:var(--ink3);cursor:not-allowed}
+.btn-green{background:var(--green);color:#fff}
+.btn-outline{background:transparent;color:var(--ink);border:2px solid var(--ink);margin-top:10px}
+.btn-sm{font-size:13px;padding:11px}
+
+/* HAT THINKING SCREEN */
+.hat-stage{padding:20px 20px 14px;display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:1px solid var(--bg2)}
+.stage-emoji{font-size:44px;margin-bottom:7px}
+.stage-name{font-family:'Syne',sans-serif;font-size:20px}
+.stage-role{font-size:12px;color:var(--ink3);margin-top:3px}
+.hat-bg-white{background:var(--white-bg)}
+.hat-bg-red{background:var(--red-bg)}
+.hat-bg-yellow{background:var(--yellow-bg)}
+.hat-bg-black{background:var(--black-bg)}
+.hat-bg-green{background:var(--green-bg)}
+.hat-bg-blue{background:var(--blue-bg)}
+
+.h-prog{display:flex;gap:7px;padding:13px 20px 0;justify-content:center}
+.h-dot{width:7px;height:7px;border-radius:50%;background:var(--bg2);transition:all .25s}
+.h-dot.done{background:var(--green)}
+.h-dot.current{background:var(--ink);transform:scale(1.45)}
+
+/* WAIT */
+.wait-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 26px;text-align:center}
+.wait-badge{display:inline-block;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:18px;border:2px solid currentColor}
+.wait-icon{font-size:48px;margin-bottom:16px;opacity:.45}
+.wait-title{font-family:'Syne',sans-serif;font-size:19px;margin-bottom:9px}
+.wait-desc{font-size:13px;color:var(--ink3);line-height:1.9}
+
+/* ANSWER BODY */
+.answer-body{flex:1;padding:14px 20px;overflow-y:auto}
+.pills-label{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin-bottom:7px}
+.pill{display:inline-block;background:var(--bg2);border-radius:20px;font-size:12px;padding:4px 10px;margin:2px 2px 2px 0;color:var(--ink2)}
+
+.q-box{background:#fff;border-radius:var(--r);padding:15px;margin-bottom:12px;box-shadow:var(--shadow);border-left:4px solid var(--green)}
+.q-label{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px}
+.q-text{font-size:14px;line-height:1.8}
+
+.rules-box{background:var(--bg2);border-radius:var(--r);padding:11px 13px;margin-bottom:12px;font-size:12px;color:var(--ink2);line-height:1.75}
+
+/* SEARCH HINT */
+.search-hint{background:#fff;border:1px dashed rgba(45,106,53,.4);border-radius:var(--r);padding:13px;margin-bottom:12px}
+.sh-title{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--green);margin-bottom:9px}
+.sh-kw{display:inline-block;background:var(--green-bg);border:1px solid rgba(45,106,53,.25);border-radius:8px;font-size:12px;padding:5px 10px;margin:3px 3px 3px 0;cursor:pointer;color:var(--green);transition:all .15s}
+.sh-kw:active{background:var(--green);color:#fff}
+.sh-cite{font-size:11px;color:var(--ink3);margin-top:9px;line-height:1.7}
+.sh-cite strong{color:var(--ink2)}
+
+/* OTHERS ANSWERS PANEL */
+.others-panel{background:#fff;border-radius:var(--r);padding:13px;margin-bottom:12px;box-shadow:var(--shadow)}
+.others-title{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.others-title::before{content:'👥';font-size:13px}
+.other-entry{padding:9px 0;border-bottom:1px solid var(--bg2)}
+.other-entry:last-child{border-bottom:none;padding-bottom:0}
+.other-seat{font-size:11px;color:var(--ink3);margin-bottom:4px}
+.other-text{font-size:13px;line-height:1.7;color:var(--ink2)}
+.others-empty{font-size:12px;color:var(--ink3);font-style:italic;text-align:center;padding:8px 0}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* BLUE HAT */
+.blue-selector .action-item{margin-bottom:8px}
+
+/* SUMMARY / PDF */
+.sum-action-hero{margin:0 20px 18px;background:var(--ink);border-radius:var(--r);padding:19px;color:#f5f0e8}
+.sah-eye{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--green2);margin-bottom:7px}
+.sah-title{font-family:'Syne',sans-serif;font-size:17px;line-height:1.35;margin-bottom:9px}
+.sah-cat{display:inline-block;background:var(--green);color:#fff;border-radius:20px;font-size:11px;font-weight:700;padding:3px 11px}
+.plan-box{margin:0 20px 13px;background:#fff;border-radius:var(--r);padding:15px;box-shadow:var(--shadow)}
+.plan-label{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin-bottom:7px}
+.plan-text{font-size:13px;line-height:1.8;white-space:pre-wrap}
+.hat-ans-section{padding:0 20px}
+.hat-ans-card{border-radius:var(--r);padding:15px;margin-bottom:9px;border:2px solid transparent}
+.hac-white{background:var(--white-bg);border-color:rgba(122,112,96,.18)}
+.hac-red{background:var(--red-bg);border-color:rgba(192,57,43,.2)}
+.hac-yellow{background:var(--yellow-bg);border-color:rgba(200,136,10,.2)}
+.hac-black{background:var(--black-bg);border-color:rgba(42,42,42,.18)}
+.hac-green{background:var(--green-bg);border-color:rgba(45,106,53,.2)}
+.hac-blue{background:var(--blue-bg);border-color:rgba(26,95,168,.2)}
+.hac-head{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.hac-emoji{font-size:17px}
+.hac-name{font-size:13px;font-weight:700}
+.hac-by{font-size:11px;color:var(--ink3);margin-left:auto}
+.hac-content{font-size:13px;line-height:1.8;color:var(--ink2)}
+.hac-empty{font-size:12px;color:var(--ink3);font-style:italic}
+
+/* multiple answers in one card */
+.multi-ans{margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(0,0,0,.07)}
+.multi-ans:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.multi-seat{font-size:11px;color:var(--ink3);margin-bottom:3px}
+
+.hdivider{height:1px;background:var(--bg2);margin:16px 20px}
+.sum-footer{padding:14px 20px 40px;display:flex;flex-direction:column;gap:10px}
+
+/* TOAST */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--ink);color:#f5f0e8;border-radius:30px;padding:10px 18px;font-size:13px;z-index:9999;opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:rgba(245,240,232,.88);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.loading-overlay.hidden{display:none}
+.spinner{width:36px;height:36px;border:3px solid var(--bg2);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--ink3)}
+
+/* PDF styles */
+@media print{
+  .topbar,.sticky-footer,.sum-footer,.cat-tabs,.no-print{display:none!important}
+  .screen{display:block!important;min-height:auto}
+  body{background:#fff}
+}
+#pdf-target{background:#fff;padding:24px}
+.pdf-header{text-align:center;margin-bottom:20px;border-bottom:2px solid #2d6a35;padding-bottom:16px}
+.pdf-header h1{font-size:20px;font-family:'Syne',sans-serif}
+.pdf-meta{font-size:12px;color:#666;margin-top:6px}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+<div class="loading-overlay hidden" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">載入中…</div>
+</div>
+<div class="modal-overlay hidden" id="confirm-modal">
+  <div class="modal-box">
+    <div class="modal-title">確認你的資料</div>
+    <div class="modal-sub">開始後無法更改班級、組別與座號，請確認正確再繼續。</div>
+    <div class="modal-row"><span class="modal-label">班級</span><span class="modal-val" id="c-class">—</span></div>
+    <div class="modal-row"><span class="modal-label">組別</span><span class="modal-val" id="c-group">—</span></div>
+    <div class="modal-row"><span class="modal-label">座號</span><span class="modal-val" id="c-seat">—</span></div>
+    <div class="modal-row"><span class="modal-label">思考帽</span><span class="modal-val" id="c-hats">—</span></div>
+    <div class="modal-btns">
+      <button class="btn btn-outline btn-sm" onclick="closeConfirm()">返回修改</button>
+      <button class="btn btn-green btn-sm" onclick="confirmStart()">確認，開始討論</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ S1: REGISTER ══════ -->
+<div class="screen active" id="s-reg">
+  <div class="topbar">
+    <span class="topbar-title">地球日 × 六頂思考帽</span>
+    <span class="topbar-step">1 / 5</span>
+  </div>
+  <div class="hero">
+    <div class="hero-eye">Earth Day 2026 · 台灣地球日</div>
+    <h1>我要為<em>地球</em><br>做一件事</h1>
+    <p>填寫班級、組別、座號，選擇你的思考帽角色</p>
+  </div>
+  <div class="content">
+    <div class="field-label">班級</div>
+    <select class="sel-input" id="reg-class" onchange="checkReg()">
+      <option value="">請選擇班級</option>
+      <option value="704">704</option>
+      <option value="708">708</option>
+      <option value="717">717</option>
+    </select>
+
+    <div class="field-label">組別</div>
+    <select class="sel-input" id="reg-group" onchange="checkReg()">
+      <option value="">請選擇組別</option>
+      <option value="1">第 1 組</option>
+      <option value="2">第 2 組</option>
+      <option value="3">第 3 組</option>
+      <option value="4">第 4 組</option>
+      <option value="5">第 5 組</option>
+      <option value="6">第 6 組</option>
+      <option value="7">第 7 組</option>
+      <option value="8">第 8 組</option>
+    </select>
+
+    <div class="field-label">座號</div>
+    <select class="sel-input" id="reg-seat" onchange="checkReg()">
+      <option value="">請選擇座號</option>
+    </select>
+
+    <div class="field-label">思考帽角色（可複選，至少一頂）</div>
+    <div class="hats-grid">
+      <div class="hat-card" data-hat="white" onclick="toggleHat(this)"><div class="hat-check"></div><div class="hat-emoji">🤍</div><div class="hat-name">白帽</div><div class="hat-role">客觀事實與數據</div></div>
+      <div class="hat-card" data-hat="red" onclick="toggleHat(this)"><div class="hat-check"></div><div class="hat-emoji">❤️</div><div class="hat-name">紅帽</div><div class="hat-role">情感與直覺感受</div></div>
+      <div class="hat-card" data-hat="yellow" onclick="toggleHat(this)"><div class="hat-check"></div><div class="hat-emoji">💛</div><div class="hat-name">黃帽</div><div class="hat-role">正面價值與優點</div></div>
+      <div class="hat-card" data-hat="black" onclick="toggleHat(this)"><div class="hat-check"></div><div class="hat-emoji">🖤</div><div class="hat-name">黑帽</div><div class="hat-role">批判與潛在風險</div></div>
+      <div class="hat-card" data-hat="green" onclick="toggleHat(this)"><div class="hat-check"></div><div class="hat-emoji">💚</div><div class="hat-name">綠帽</div><div class="hat-role">創意與新想法</div></div>
+      <div class="hat-card" data-hat="blue" onclick="toggleHat(this)"><div class="hat-check"></div><div class="hat-emoji">💙</div><div class="hat-name">藍帽</div><div class="hat-role">統整與行動結論</div></div>
+    </div>
+  </div>
+  <div class="sticky-footer">
+    <button class="btn btn-primary" id="btn-reg" onclick="openConfirm()" disabled>下一步 →</button>
+  </div>
+</div>
+
+<!-- ══════ S2: ACTIONS ══════ -->
+<div class="screen" id="s-actions">
+  <div class="topbar">
+    <span class="topbar-title">選擇有興趣的行動</span>
+    <span class="topbar-step">2 / 5</span>
+  </div>
+  <div class="hero" style="padding:16px 22px 14px">
+    <div class="hero-eye">6項綠行動</div>
+    <h1 style="font-size:20px">選出 <em>2項</em> 你最有興趣的行動</h1>
+    <p style="font-size:12px">先憑直覺選，之後用六頂思考帽討論，最後藍帽決定做哪一個</p>
+  </div>
+  <div class="cat-tabs">
+    <div class="cat-tab active" data-cat="all" onclick="filterCat(this,'all')">全部</div>
+    <div class="cat-tab" data-cat="減塑力" onclick="filterCat(this,'減塑力')">♻️ 減塑力</div>
+    <div class="cat-tab" data-cat="減碳力" onclick="filterCat(this,'減碳力')">🌿 減碳力</div>
+    <div class="cat-tab" data-cat="節約力" onclick="filterCat(this,'節約力')">💧 節約力</div>
+  </div>
+  <div class="actions-wrap" id="actions-list"></div>
+  <div class="sticky-footer">
+    <div class="sel-status">已選 <strong id="sel-count">0</strong> / 2 項</div>
+    <button class="btn btn-primary" id="btn-actions" onclick="saveActionsAndGo()" disabled>開始思考帽討論 →</button>
+  </div>
+</div>
+
+<!-- ══════ S3: THINKING ══════ -->
+<div class="screen" id="s-think">
+  <div class="topbar">
+    <span class="topbar-title" id="think-title">思考帽討論</span>
+    <span class="topbar-step" id="think-step">3 / 5</span>
+  </div>
+  <div class="hat-stage" id="hat-stage">
+    <div class="stage-emoji" id="st-emoji">🤍</div>
+    <div class="stage-name" id="st-name">白帽</div>
+    <div class="stage-role" id="st-role">客觀事實與數據</div>
+  </div>
+  <div class="h-prog" id="h-prog"></div>
+  <div class="wait-body" id="wait-body" style="display:none">
+    <div class="wait-badge" id="wait-badge">🤍 白帽</div>
+    <div class="wait-icon">👂</div>
+    <div class="wait-title">聆聽與等待</div>
+    <div class="wait-desc">現在是 <strong id="wait-hat-name">白帽</strong> 的發言時間<br>請仔細聆聽，等輪到你的帽子再作答</div>
+  </div>
+  <div class="answer-body" id="answer-body" style="display:none">
+    <div style="margin-bottom:12px">
+      <div class="pills-label">你們初選的行動</div>
+      <div id="pills-ct"></div>
+    </div>
+    <div class="q-box" id="q-box">
+      <div class="q-label" id="q-label">提問</div>
+      <div class="q-text" id="q-text"></div>
+    </div>
+    <div class="rules-box" id="rules-box"></div>
+    <div class="search-hint" id="search-hint" style="display:none">
+      <div class="sh-title">🔍 白帽搜尋建議（點擊複製）</div>
+      <div id="sh-kws"></div>
+      <div class="sh-cite">📌 <strong>記得標出處：</strong>資料來源名稱＋搜尋日期<br>範例：「台灣每年使用XX億個塑膠袋。（資料來源：環境部，2026/04/22）」</div>
+    </div>
+    <div class="others-panel">
+      <div class="others-title">同組其他同學的回答</div>
+      <div id="others-ct"><div class="others-empty">目前還沒有其他同學作答</div></div>
+    </div>
+    <textarea class="input-text" id="ans-ta" placeholder=""></textarea>
+  </div>
+  <div class="sticky-footer" id="think-footer">
+    <button class="btn btn-primary" id="btn-think" onclick="handleThinkNext()"></button>
+  </div>
+</div>
+
+<!-- ══════ S4: BLUE HAT ══════ -->
+<div class="screen" id="s-blue">
+  <div class="topbar">
+    <span class="topbar-title">💙 藍帽統整</span>
+    <span class="topbar-step">5 / 5</span>
+  </div>
+  <div class="hat-stage hat-bg-blue">
+    <div class="stage-emoji">💙</div>
+    <div class="stage-name">藍帽統整</div>
+    <div class="stage-role">做出決定，規劃行動</div>
+  </div>
+  <div class="answer-body" style="display:block">
+    <div style="margin-bottom:14px">
+      <div class="pills-label">你們初選的行動</div>
+      <div id="blue-pills"></div>
+    </div>
+    <div class="q-box" style="border-left-color:var(--blue)">
+      <div class="q-label">💙 藍帽任務</div>
+      <div class="q-text">綜合前面五頂帽子的討論——<br>現在選出<strong>一項最想響應地球日的行動</strong>，並說明你們打算<strong>怎麼具體實踐</strong>。</div>
+    </div>
+    <div class="others-panel">
+      <div class="others-title">同組其他帽子的作答紀錄</div>
+      <div id="blue-others-ct"><div class="others-empty">載入中…</div></div>
+    </div>
+    <div class="field-label">最終選定的行動</div>
+    <div class="blue-selector" id="blue-selector"></div>
+    <div class="field-label" style="margin-top:16px">我們的具體做法</div>
+    <textarea class="input-text" id="blue-plan" placeholder="例：我們打算每天上學自帶餐具，並在班上發起挑戰，邀請同學一起加入……" style="min-height:120px"></textarea>
+  </div>
+  <div class="sticky-footer">
+    <button class="btn btn-primary" id="btn-blue" onclick="submitBlue()">完成！查看成果報告 →</button>
+  </div>
+</div>
+
+<!-- ══════ S5: SUMMARY ══════ -->
+<div class="screen" id="s-sum">
+  <div class="topbar">
+    <span class="topbar-title">我們的行動主張</span>
+    <span class="topbar-step">完成 🎉</span>
+  </div>
+  <div class="hero">
+    <div class="hero-eye">地球日行動宣言</div>
+    <h1 id="sum-hl">我們要用<br><em>減塑力</em>響應地球日</h1>
+    <p id="sum-meta">—</p>
+  </div>
+  <div style="height:18px"></div>
+  <div class="sum-action-hero">
+    <div class="sah-eye">我們選出的行動</div>
+    <div class="sah-title" id="sum-act-title">—</div>
+    <div class="sah-cat" id="sum-act-cat">—</div>
+  </div>
+  <div class="plan-box">
+    <div class="plan-label">📋 我們的實踐計畫</div>
+    <div class="plan-text" id="sum-plan">—</div>
+  </div>
+  <div class="hdivider"></div>
+  <div class="hat-ans-section">
+    <div class="field-label" style="margin-bottom:13px;margin-top:0">各帽子的思考過程（全組）</div>
+    <div id="sum-hat-ans"></div>
+  </div>
+  <div class="sum-footer">
+    <button class="btn btn-green" onclick="exportPDF()">📄 匯出 PDF 報告</button>
+    <button class="btn btn-outline" onclick="restartAll()">🔄 重新開始</button>
+  </div>
+</div>
+
+<!-- PDF TARGET (hidden) -->
+<div id="pdf-target" style="display:none"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyATDzAF9W9IPKlcY_l6efcRp0kzvg14ci4",
+  authDomain: "earth-day-six-thinking-hats.firebaseapp.com",
+  projectId: "earth-day-six-thinking-hats",
+  storageBucket: "earth-day-six-thinking-hats.firebasestorage.app",
+  messagingSenderId: "932580651646",
+  appId: "1:932580651646:web:235ca3b955bec6ad589e2f",
+  measurementId: "G-JQ2Z6WK2HB"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+window._db = db;
+window._fbFns = { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs };
+
+// ── DATA ──
+const ACTIONS = {
+  '減塑力': [
+    {n:1,  t:'隨身攜帶購物袋、環保餐具及水杯'},
+    {n:13, t:'落實正確資源回收和分類'},
+  ],
+  '減碳力': [
+    {n:17, t:'以重複性保暖用品取代暖暖包'},
+    {n:21, t:'搭乘大眾交通工具或共乘，響應低碳旅遊'},
+  ],
+  '節約力': [
+    {n:32, t:'多走樓梯、少搭電梯'},
+    {n:37, t:'營造通風環境，少開冷氣'},
+  ]
+};
+window.ACTIONS = ACTIONS;
+
+const SEARCH_HINTS = {
+  1:  {kws:['台灣塑膠袋每年使用量','一次性餐具垃圾量台灣','環保杯碳排放比較'],},
+  13: {kws:['台灣資源回收率','垃圾分類錯誤率','回收減少碳排數據'],},
+  17: {kws:['暖暖包成分環境污染','暖暖包鐵粉回收','重複使用暖暖包比較'],},
+  21: {kws:['汽車機車碳排放量比較','大眾運輸減碳台灣','捷運一公里碳排'],},
+  32: {kws:['電梯耗電量','爬樓梯健康好處','建築用電電梯比例'],},
+  37: {kws:['冷氣耗電量一小時','台灣家庭用電冷氣比例','開窗通風降溫效果'],},
+};
+
+const HAT_ORDER = ['white','red','yellow','black','green'];
+const HAT_CFG = {
+  white:  {emoji:'🤍',name:'白帽',role:'客觀事實與數據',cls:'hat-bg-white',cardCls:'hac-white',
+    question:'針對你們選的兩項行動，找一個具體的數字或事實來說明它的環境影響。',
+    rules:'<strong>回應規則：</strong>只說事實與數字，不加入個人意見。其他帽子請聆聽。',showSearch:true},
+  red:    {emoji:'❤️',name:'紅帽',role:'情感與直覺感受',cls:'hat-bg-red',cardCls:'hac-red',
+    question:'這兩項行動，哪個讓你最有感覺、最想去做？不需要理由，說出你的直覺就好。',
+    rules:'<strong>回應規則：</strong>紅帽發言時<strong>任何人不得反駁或追問原因</strong>，情感不需要論證。',showSearch:false},
+  yellow: {emoji:'💛',name:'黃帽',role:'正面價值與優點',cls:'hat-bg-yellow',cardCls:'hac-yellow',
+    question:'這兩項行動各有什麼好處？對自己、對環境能帶來什麼正面改變？',
+    rules:'<strong>回應規則：</strong>黃帽發言時，白帽可補充事實支持，其他帽子不能否定。',showSearch:false},
+  black:  {emoji:'🖤',name:'黑帽',role:'批判與潛在風險',cls:'hat-bg-black',cardCls:'hac-black',
+    question:'這兩項行動，在你的日常生活中哪個最難堅持？有什麼現實阻礙？',
+    rules:'<strong>回應規則：</strong>黃帽這時候<strong>不能說「但是也有好處」</strong>，先讓批判說完。',showSearch:false},
+  green:  {emoji:'💚',name:'綠帽',role:'創意與新想法',cls:'hat-bg-green',cardCls:'hac-green',
+    question:'針對黑帽點出的困難，有沒有更有趣的解法？讓這個行動更容易讓同學跟著做？',
+    rules:'<strong>回應規則：</strong>任何人都可以追加創意，但<strong>不能說「這不可行」</strong>。',showSearch:false},
+  blue:   {emoji:'💙',name:'藍帽',role:'統整與行動結論',cls:'hat-bg-blue',cardCls:'hac-blue',},
+};
+window.HAT_CFG = HAT_CFG;
+window.HAT_ORDER = HAT_ORDER;
+
+// ── STATE ──
+let S = {
+  cls:'', group:'', seat:'', hats:[],
+  selectedActions:[], hatIdx:0, answers:{},
+  finalAction:null, finalPlan:'',
+  docId:''
+};
+let unsubOthers = null;
+let unsubBlueOthers = null;
+
+// ── SEAT (1–35) ──
+(function initSeats(){
+  const sel = document.getElementById('reg-seat');
+  for(let i=1;i<=35;i++){
+    const o = document.createElement('option');
+
+    sel.appendChild(o);
+  }
+})();
+
+window.toggleHat = (card) => { card.classList.toggle('selected'); checkReg(); };
+window.checkReg = () => {
+  const cls = document.getElementById('reg-class').value;
+  const grp = document.getElementById('reg-group').value;
+  const seat = document.getElementById('reg-seat').value;
+  const hats = document.querySelectorAll('.hat-card.selected').length;
+  document.getElementById('btn-reg').disabled = !(cls && grp && seat && hats > 0);
+};
+
+// ── CONFIRM ──
+window.openConfirm = () => {
+  const cls = document.getElementById('reg-class').value;
+  const grp = document.getElementById('reg-group').value;
+  const seat = document.getElementById('reg-seat').value;
+  const hats = [...document.querySelectorAll('.hat-card.selected')].map(c=>HAT_CFG[c.dataset.hat]?.emoji+HAT_CFG[c.dataset.hat]?.name);
+  document.getElementById('c-class').textContent = cls+'班';
+  document.getElementById('c-group').textContent = '第'+grp+'組';
+  document.getElementById('c-seat').textContent = seat+'號';
+  document.getElementById('c-hats').textContent = hats.join('、');
+  document.getElementById('confirm-modal').classList.remove('hidden');
+};
+window.closeConfirm = () => document.getElementById('confirm-modal').classList.add('hidden');
+
+window.confirmStart = async () => {
+  closeConfirm();
+  S.cls = document.getElementById('reg-class').value;
+  S.group = document.getElementById('reg-group').value;
+  S.seat = document.getElementById('reg-seat').value;
+  S.hats = [...document.querySelectorAll('.hat-card.selected')].map(c=>c.dataset.hat);
+  S.docId = `${S.cls}-${S.group}-${S.seat}`;
+
+  showLoading('確認進度中…');
+  const ref = doc(db,'sessions', S.docId);
+  const snap = await getDoc(ref);
+  hideLoading();
+
+  if(snap.exists()){
+    const data = snap.data();
+    // show resume modal inline
+    showResumeChoice(data);
+  } else {
+    await setDoc(ref, {cls:S.cls, group:S.group, seat:S.seat, hats:S.hats,
+      selectedActions:[], hatIdx:0, answers:{}, finalAction:null, finalPlan:'',
+      updatedAt: Date.now()});
+    showScreen('s-actions');
+    renderActions('all');
+  }
+};
+
+function showResumeChoice(data){
+  const stepNames = ['選擇行動','白帽思考','紅帽思考','黃帽思考','黑帽思考','綠帽思考','藍帽統整','已完成'];
+  const stepIdx = data.finalPlan ? 7 : data.hatIdx >= 5 ? 6 : data.selectedActions?.length > 0 ? data.hatIdx+1 : 0;
+  const stepName = stepNames[stepIdx] || '選擇行動';
+
+  const box = document.createElement('div');
+  box.className = 'modal-overlay';
+  box.innerHTML = `<div class="modal-box">
+    <div class="modal-title">🔄 找到你的紀錄</div>
+    <div class="modal-sub">${S.cls}班 第${S.group}組 座號${S.seat}<br>目前進度：<strong>${stepName}</strong></div>
+    <div class="modal-btns">
+      <button class="btn btn-outline btn-sm" onclick="clearAndRestart(this.closest('.modal-overlay'))">清除重來</button>
+      <button class="btn btn-green btn-sm" onclick="resumeProgress(${JSON.stringify(data).replace(/"/g,'&quot;')}, this.closest('.modal-overlay'))">繼續上次進度</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+}
+
+window.clearAndRestart = async (modal) => {
+  modal.remove();
+  showLoading('清除中…');
+  const ref = doc(db,'sessions', S.docId);
+  await setDoc(ref, {cls:S.cls, group:S.group, seat:S.seat, hats:S.hats,
+    selectedActions:[], hatIdx:0, answers:{}, finalAction:null, finalPlan:'',
+    updatedAt: Date.now()});
+  hideLoading();
+  showScreen('s-actions');
+  renderActions('all');
+};
+
+window.resumeProgress = (data, modal) => {
+  modal.remove();
+  S.hats = data.hats || S.hats;
+  S.selectedActions = data.selectedActions || [];
+  S.hatIdx = data.hatIdx || 0;
+  S.answers = data.answers || {};
+  S.finalAction = data.finalAction || null;
+  S.finalPlan = data.finalPlan || '';
+
+  if(S.finalPlan){ renderSummary(); showScreen('s-sum'); }
+  else if(S.hatIdx >= 5){ goToBlue(); }
+  else if(S.selectedActions.length > 0){ showScreen('s-think'); renderThinking(); }
+  else { showScreen('s-actions'); renderActions('all'); }
+};
+
+// ── ACTIONS ──
+const allActions = Object.entries(ACTIONS).flatMap(([cat,items])=>items.map(a=>({...a,cat})));
+window.renderActions = (cat) => {
+  const list = document.getElementById('actions-list');
+  list.innerHTML='';
+  const cats = cat==='all' ? Object.keys(ACTIONS) : [cat];
+  cats.forEach(c=>{
+    const sec = document.createElement('div');
+    sec.className='cat-section';
+    const em = c==='減塑力'?'♻️':c==='減碳力'?'🌿':'💧';
+    sec.innerHTML=`<div class="cat-title">${em} ${c}</div>`;
+    ACTIONS[c].forEach(a=>{
+      const isSel = S.selectedActions.some(x=>x.n===a.n);
+      const rank = S.selectedActions.findIndex(x=>x.n===a.n)+1;
+      const el = document.createElement('div');
+      el.className='action-item'+(isSel?' selected':'');
+      el.innerHTML=`<div class="action-num">${a.n}</div><div class="action-text">${a.t}</div><div class="action-rank">${rank||'✓'}</div>`;
+      el.onclick=()=>toggleAction(a,c,cat);
+      sec.appendChild(el);
+    });
+    list.appendChild(sec);
+  });
+};
+
+function toggleAction(action, cat, currentCat){
+  const idx = S.selectedActions.findIndex(x=>x.n===action.n);
+  if(idx>-1){ S.selectedActions.splice(idx,1); }
+  else {
+    if(S.selectedActions.length>=2){ showToast('最多選 2 項！'); return; }
+    S.selectedActions.push({...action,cat});
+  }
+  window.renderActions(currentCat||'all');
+  document.getElementById('sel-count').textContent = S.selectedActions.length;
+  document.getElementById('btn-actions').disabled = S.selectedActions.length < 2;
+}
+
+window.filterCat = (tab, cat) => {
+  document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  window.renderActions(cat);
+};
+
+window.saveActionsAndGo = async () => {
+  showLoading('儲存中…');
+  const ref = doc(db,'sessions', S.docId);
+  await setDoc(ref, {selectedActions: S.selectedActions, updatedAt:Date.now()}, {merge:true});
+  hideLoading();
+  S.hatIdx = 0;
+  showScreen('s-think');
+  renderThinking();
+};
+
+// ── THINKING ──
+function renderThinking(){
+  const hatKey = HAT_ORDER[S.hatIdx];
+  const hat = HAT_CFG[hatKey];
+  const isMyHat = S.hats.includes(hatKey);
+
+  document.getElementById('think-title').textContent = hat.name+'思考';
+  document.getElementById('think-step').textContent = (S.hatIdx+3)+' / 5 待討論';
+
+  const stageEl = document.getElementById('hat-stage');
+  stageEl.className = 'hat-stage '+hat.cls;
+  document.getElementById('st-emoji').textContent = hat.emoji;
+  document.getElementById('st-name').textContent = hat.name+'思考';
+  document.getElementById('st-role').textContent = hat.role;
+
+  // progress
+  const prog = document.getElementById('h-prog');
+  prog.innerHTML='';
+  HAT_ORDER.forEach((h,i)=>{
+    const d=document.createElement('div');
+    d.className='h-dot'+(i<S.hatIdx?' done':i===S.hatIdx?' current':'');
+    prog.appendChild(d);
+  });
+
+  // unsubscribe previous listener
+  if(unsubOthers){ unsubOthers(); unsubOthers=null; }
+
+  if(isMyHat){
+    document.getElementById('wait-body').style.display='none';
+    document.getElementById('answer-body').style.display='block';
+
+    document.getElementById('pills-ct').innerHTML =
+      S.selectedActions.map(a=>`<span class="pill">${a.n}. ${a.t.slice(0,18)}${a.t.length>18?'…':''}</span>`).join('');
+
+    const qBox = document.getElementById('q-box');
+    qBox.style.borderLeftColor = hatKey==='white'?'var(--white-h)':hatKey==='red'?'var(--red)':hatKey==='yellow'?'var(--yellow)':hatKey==='black'?'var(--black-h)':'var(--green)';
+    document.getElementById('q-label').textContent = hat.emoji+' '+hat.name+'提問';
+    document.getElementById('q-text').textContent = hat.question;
+    document.getElementById('rules-box').innerHTML = hat.rules;
+
+    // search hint (white hat only, shown for selected actions)
+    const sh = document.getElementById('search-hint');
+    if(hat.showSearch){
+      sh.style.display='block';
+      const kws = S.selectedActions.flatMap(a=>SEARCH_HINTS[a.n]?.kws||[]);
+      document.getElementById('sh-kws').innerHTML = [...new Set(kws)].map(k=>
+        `<span class="sh-kw" onclick="copyKw(this,'${k}')">${k}</span>`).join('');
+    } else { sh.style.display='none'; }
+
+    const ta = document.getElementById('ans-ta');
+    ta.value = S.answers[hatKey]||'';
+    ta.placeholder = `從「${hat.role}」的角度，針對你們選的行動寫下你的觀點…`;
+
+    const btn = document.getElementById('btn-think');
+    const isLast = S.hatIdx===HAT_ORDER.length-1;
+    btn.textContent = isLast ? '進入藍帽統整 →' : '儲存，等待下一頂帽子 →';
+    btn.style.cssText='';
+
+    // live others
+    subscribeOthers(hatKey);
+
+  } else {
+    document.getElementById('wait-body').style.display='flex';
+    document.getElementById('answer-body').style.display='none';
+
+    const badge = document.getElementById('wait-badge');
+    const colorMap={white:'var(--white-h)',red:'var(--red)',yellow:'var(--yellow)',black:'var(--black-h)',green:'var(--green)'};
+    badge.textContent = hat.emoji+' '+hat.name;
+    badge.style.color = colorMap[hatKey];
+    badge.style.borderColor = colorMap[hatKey];
+    document.getElementById('wait-hat-name').textContent = hat.name;
+
+    const btn = document.getElementById('btn-think');
+    const isLast = S.hatIdx===HAT_ORDER.length-1;
+    btn.textContent = isLast ? '進入藍帽統整 →' : '（聆聽完畢）進入下一頂帽子 →';
+    btn.style.background='var(--bg2)';
+    btn.style.color='var(--ink)';
+  }
+}
+
+function subscribeOthers(hatKey){
+  const othersEl = document.getElementById('others-ct');
+  othersEl.innerHTML='<div class="others-empty"><span class="live-dot"></span>即時載入中…</div>';
+  // query all sessions in same group
+  const q = window._fbFns.query(
+    window._fbFns.collection(db,'sessions'),
+    window._fbFns.where('cls','==',S.cls),
+    window._fbFns.where('group','==',S.group)
+  );
+  unsubOthers = window._fbFns.onSnapshot(q, snap=>{
+    const entries = [];
+    snap.forEach(d=>{
+      const data = d.data();
+      if(d.id === S.docId) return; // skip self
+      const ans = data.answers?.[hatKey];
+      if(ans) entries.push({seat:data.seat, ans});
+    });
+    if(entries.length===0){
+      othersEl.innerHTML='<div class="others-empty">目前還沒有同學回答此帽子</div>';
+    } else {
+      othersEl.innerHTML = entries.map(e=>`
+        <div class="other-entry">
+          <div class="other-seat">座號 ${e.seat}</div>
+          <div class="other-text">${esc(e.ans)}</div>
+        </div>`).join('');
+    }
+  });
+}
+
+window.handleThinkNext = async () => {
+  const hatKey = HAT_ORDER[S.hatIdx];
+  const isMyHat = S.hats.includes(hatKey);
+  if(isMyHat){
+    const ans = document.getElementById('ans-ta').value.trim();
+    if(!ans){ showToast('請輸入思考內容再繼續'); return; }
+    S.answers[hatKey] = ans;
+    showLoading('儲存中…');
+    const ref = doc(db,'sessions', S.docId);
+    await setDoc(ref,{answers:S.answers, hatIdx:S.hatIdx+1, updatedAt:Date.now()},{merge:true});
+    hideLoading();
+  }
+  if(S.hatIdx >= HAT_ORDER.length-1){ goToBlue(); return; }
+  S.hatIdx++;
+  await setDoc(doc(db,'sessions',S.docId),{hatIdx:S.hatIdx},{merge:true});
+  renderThinking();
+  document.getElementById('s-think').scrollTop=0;
+};
+
+// ── BLUE HAT ──
+window.goToBlue = async () => {
+  if(unsubOthers){ unsubOthers(); unsubOthers=null; }
+  showScreen('s-blue');
+
+  document.getElementById('blue-pills').innerHTML =
+    S.selectedActions.map(a=>`<span class="pill">${a.n}. ${a.t.slice(0,20)}${a.t.length>20?'…':''}</span>`).join('');
+
+  // selector
+  const sel = document.getElementById('blue-selector');
+  sel.innerHTML='';
+  S.selectedActions.forEach(a=>{
+    const btn=document.createElement('div');
+    btn.className='action-item';
+    btn.innerHTML=`<div class="action-num">${a.n}</div><div class="action-text">${a.t}</div><div class="action-rank">✓</div>`;
+    btn.onclick=()=>{
+      document.querySelectorAll('#blue-selector .action-item').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      S.finalAction=a;
+    };
+    sel.appendChild(btn);
+  });
+  if(S.finalAction){
+    const match = sel.querySelector(`.action-item:nth-child(${S.selectedActions.findIndex(a=>a.n===S.finalAction.n)+1})`);
+    if(match) match.classList.add('selected');
+  }
+  if(S.finalPlan) document.getElementById('blue-plan').value = S.finalPlan;
+
+  // load all hat answers from group
+  const othersEl = document.getElementById('blue-others-ct');
+  othersEl.innerHTML='<div class="others-empty"><span class="live-dot"></span>載入中…</div>';
+  const q = window._fbFns.query(
+    window._fbFns.collection(db,'sessions'),
+    window._fbFns.where('cls','==',S.cls),
+    window._fbFns.where('group','==',S.group)
+  );
+  unsubBlueOthers = window._fbFns.onSnapshot(q, snap=>{
+    let html='';
+    HAT_ORDER.forEach(hk=>{
+      const hat=HAT_CFG[hk];
+      const entries=[];
+      snap.forEach(d=>{
+        const ans=d.data().answers?.[hk];
+        if(ans) entries.push({seat:d.data().seat, ans});
+      });
+      if(entries.length===0) return;
+      html+=`<div class="hat-ans-card ${hat.cardCls}" style="margin-bottom:10px">
+        <div class="hac-head"><span class="hac-emoji">${hat.emoji}</span><span class="hac-name">${hat.name}</span></div>
+        ${entries.map(e=>`<div class="multi-ans"><div class="multi-seat">座號 ${e.seat}</div><div class="hac-content">${esc(e.ans)}</div></div>`).join('')}
+      </div>`;
+    });
+    othersEl.innerHTML = html || '<div class="others-empty">還沒有同學完成各帽子作答</div>';
+  });
+};
+
+window.submitBlue = async () => {
+  if(!S.finalAction){ showToast('請選出最終行動'); return; }
+  const plan = document.getElementById('blue-plan').value.trim();
+  if(!plan){ showToast('請填寫具體做法'); return; }
+  S.finalPlan = plan;
+  showLoading('儲存中…');
+  const ref = doc(db,'sessions', S.docId);
+  await setDoc(ref,{finalAction:S.finalAction, finalPlan:plan, updatedAt:Date.now()},{merge:true});
+  hideLoading();
+  if(unsubBlueOthers){ unsubBlueOthers(); unsubBlueOthers=null; }
+  renderSummary();
+  showScreen('s-sum');
+};
+
+// ── SUMMARY ──
+async function renderSummary(){
+  const act = S.finalAction;
+  document.getElementById('sum-hl').innerHTML = `我們要用<br><em>${act.cat}</em>響應地球日`;
+  document.getElementById('sum-meta').textContent = `${S.cls}班 第${S.group}組｜座號${S.seat}｜擔任：${S.hats.map(h=>HAT_CFG[h]?.emoji+HAT_CFG[h]?.name).join('、')}`;
+  document.getElementById('sum-act-title').textContent = act.t;
+  document.getElementById('sum-act-cat').textContent = act.cat;
+  document.getElementById('sum-plan').textContent = S.finalPlan;
+
+  // load all group answers
+  const wrap = document.getElementById('sum-hat-ans');
+  wrap.innerHTML='<div class="others-empty">載入中…</div>';
+  const q = window._fbFns.query(
+    window._fbFns.collection(db,'sessions'),
+    window._fbFns.where('cls','==',S.cls),
+    window._fbFns.where('group','==',S.group)
+  );
+  const snap = await window._fbFns.getDocs(q);
+  let html='';
+  HAT_ORDER.forEach(hk=>{
+    const hat=HAT_CFG[hk];
+    const entries=[];
+    snap.forEach(d=>{ const ans=d.data().answers?.[hk]; if(ans) entries.push({seat:d.data().seat,ans}); });
+    html+=`<div class="hat-ans-card ${hat.cardCls}">
+      <div class="hac-head"><span class="hac-emoji">${hat.emoji}</span><span class="hac-name">${hat.name}</span><span class="hac-by">${hat.role}</span></div>
+      ${entries.length ? entries.map(e=>`<div class="multi-ans"><div class="multi-seat">座號 ${e.seat}</div><div class="hac-content">${esc(e.ans)}</div></div>`).join('') : '<div class="hac-empty">本組無此帽子作答</div>'}
+    </div>`;
+  });
+  html+=`<div class="hat-ans-card hac-blue">
+    <div class="hac-head"><span class="hac-emoji">💙</span><span class="hac-name">藍帽統整</span><span class="hac-by">最終決定</span></div>
+    <div class="hac-content"><strong>${esc(act.t)}</strong><br><br>${esc(S.finalPlan)}</div>
+  </div>`;
+  wrap.innerHTML=html;
+}
+
+// ── PDF ──
+window.exportPDF = async () => {
+  showLoading('產生 PDF 中…');
+  const act = S.finalAction;
+  const wrap = document.getElementById('sum-hat-ans');
+
+  const q = window._fbFns.query(
+    window._fbFns.collection(db,'sessions'),
+    window._fbFns.where('cls','==',S.cls),
+    window._fbFns.where('group','==',S.group)
+  );
+  const snap = await window._fbFns.getDocs(q);
+
+  let hatsHtml='';
+  HAT_ORDER.forEach(hk=>{
+    const hat=HAT_CFG[hk];
+    const entries=[];
+    snap.forEach(d=>{ const ans=d.data().answers?.[hk]; if(ans) entries.push({seat:d.data().seat,ans}); });
+    hatsHtml+=`<div style="margin-bottom:14px;padding:12px;border-radius:10px;border:1.5px solid #ddd;background:#fafafa">
+      <div style="font-weight:700;margin-bottom:8px">${hat.emoji} ${hat.name}（${hat.role}）</div>
+      ${entries.length ? entries.map(e=>`<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #eee"><div style="font-size:11px;color:#888;margin-bottom:3px">座號 ${e.seat}</div><div style="font-size:13px;line-height:1.75">${e.ans.replace(/\n/g,'<br>')}</div></div>`).join('') : '<div style="font-size:12px;color:#aaa;font-style:italic">本組無此帽子作答</div>'}
+    </div>`;
+  });
+
+  const pdfEl = document.getElementById('pdf-target');
+  pdfEl.style.display='block';
+  pdfEl.innerHTML=`
+    <div style="font-family:sans-serif;padding:20px;max-width:700px;margin:0 auto">
+      <div style="text-align:center;border-bottom:3px solid #2d6a35;padding-bottom:16px;margin-bottom:20px">
+        <div style="font-size:13px;color:#2d6a35;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Earth Day 2026 · 地球日六頂思考帽</div>
+        <h1 style="font-size:22px;margin-bottom:4px">🌍 我們的地球日行動主張</h1>
+        <div style="font-size:12px;color:#888">${S.cls}班 第${S.group}組 ｜ 製作日期：${new Date().toLocaleDateString('zh-TW')}</div>
+      </div>
+      <div style="background:#1a1a14;color:#f5f0e8;border-radius:12px;padding:18px;margin-bottom:18px">
+        <div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#4a9e55;margin-bottom:8px">我們選出的行動</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">${act.t}</div>
+        <span style="background:#2d6a35;color:#fff;border-radius:20px;font-size:11px;font-weight:700;padding:3px 12px">${act.cat}</span>
+      </div>
+      <div style="background:#fff;border:1.5px solid #ddd;border-radius:12px;padding:16px;margin-bottom:18px">
+        <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#888;margin-bottom:8px">📋 我們的實踐計畫</div>
+        <div style="font-size:14px;line-height:1.8">${S.finalPlan.replace(/\n/g,'<br>')}</div>
+      </div>
+      <div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:14px">各帽子的思考過程（全組）</div>
+      ${hatsHtml}
+    </div>`;
+
+  await html2pdf().set({
+    margin: 0,
+    filename: `地球日行動主張_${S.cls}班第${S.group}組.pdf`,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(pdfEl).save();
+
+  pdfEl.style.display='none';
+  hideLoading();
+};
+
+// ── UTILS ──
+window.showScreen = (id) => {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+};
+window.showToast = (msg) => {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2300);
+};
+function showLoading(txt){ document.getElementById('loading-text').textContent=txt||'載入中…'; document.getElementById('loading').classList.remove('hidden'); }
+function hideLoading(){ document.getElementById('loading').classList.add('hidden'); }
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+window.copyKw = (el, kw) => {
+  navigator.clipboard?.writeText(kw).catch(()=>{});
+  showToast('已複製：'+kw);
+  el.style.background='var(--green)';
+  el.style.color='#fff';
+  setTimeout(()=>{ el.style.background=''; el.style.color=''; },1200);
+};
+
+window.restartAll = () => {
+  S={cls:'',group:'',seat:'',hats:[],selectedActions:[],hatIdx:0,answers:{},finalAction:null,finalPlan:'',docId:''};
+  document.getElementById('reg-class').value='';
+  document.getElementById('reg-group').value='';
+  document.getElementById('reg-seat').value='';
+  document.querySelectorAll('.hat-card.selected').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('btn-reg').disabled=true;
+  document.getElementById('sel-count').textContent='0';
+  document.getElementById('btn-actions').disabled=true;
+  showScreen('s-reg');
+};
+</script>
+</body>
+</html>
