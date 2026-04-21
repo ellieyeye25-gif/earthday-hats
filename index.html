@@ -853,19 +853,26 @@ function subscribeHatReadiness(hatKey) {
       // 有指定擔任者 → 等全部完成
       const done = responders.filter(r=>r.answered).length;
       const total = responders.length;
+      const iAmResponder = S.hats.includes(hatKey);
+      const iHaveSaved = iAmResponder && !!S.answers[hatKey];
+
       if(done >= total) {
+        // 全組完成 → 所有人解鎖
         unlockNextBtn(btn);
-        if(statusEl) statusEl.innerHTML = `✅ ${hat_name_for(hatKey)} 全 ${total} 位已完成，請按下方按鈕繼續`;
+        if(statusEl) statusEl.innerHTML = `✅ 全 ${total} 位已完成，請按下方按鈕繼續`;
       } else {
-        lockNextBtn(btn);
+        // 尚未全部完成
         const waiting = responders.filter(r=>!r.answered).map(r=>`座號${r.seat}`).join('、');
         if(statusEl) statusEl.innerHTML = `<span class="live-dot"></span>等待中：${waiting} 尚未完成`;
+        // 只有「非作答者」或「已儲存的作答者」才鎖定按鈕
+        // 尚未儲存的作答者，按鈕保持可點（讓他能按儲存）
+        if(!iAmResponder || iHaveSaved){
+          lockNextBtn(btn);
+        }
       }
     }
   });
 }
-
-function hat_name_for(key){ return HAT_CFG[key]?.name||key; }
 
 function unlockNextBtn(btn){
   // 統一呼叫 readyToProceed 處理解鎖 UI
