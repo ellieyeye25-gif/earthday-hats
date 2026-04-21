@@ -912,7 +912,6 @@ async function renderSummary(){
 window.exportPDF = async () => {
   showLoading('產生 PDF 中…');
   const act = S.finalAction;
-  const wrap = document.getElementById('sum-hat-ans');
 
   const q = window._fbFns.query(
     window._fbFns.collection(db,'sessions'),
@@ -934,8 +933,7 @@ window.exportPDF = async () => {
 
   const pdfEl = document.getElementById('pdf-target');
   pdfEl.style.display='block';
-  pdfEl.innerHTML=`
-    <div style="font-family:sans-serif;padding:20px;max-width:700px;margin:0 auto">
+  pdfEl.innerHTML=`<div style="font-family:sans-serif;padding:20px;max-width:700px;margin:0 auto;background:#fff">
       <div style="text-align:center;border-bottom:3px solid #2d6a35;padding-bottom:16px;margin-bottom:20px">
         <div style="font-size:13px;color:#2d6a35;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Earth Day 2026 · 地球日六頂思考帽</div>
         <h1 style="font-size:22px;margin-bottom:4px">🌍 我們的地球日行動主張</h1>
@@ -955,10 +953,10 @@ window.exportPDF = async () => {
     </div>`;
 
   await html2pdf().set({
-    margin: 0,
+    margin: [0, 0, 0, 0],
     filename: `地球日行動主張_${S.cls}班第${S.group}組.pdf`,
     image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true },
+    html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   }).from(pdfEl).save();
 
