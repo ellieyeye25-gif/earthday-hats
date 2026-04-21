@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理員後台 · 地球日六頂思考帽</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+:root{
+  --bg:#f5f0e8;--bg2:#e8e2d4;--ink:#1a1a14;--ink2:#4a4a3a;--ink3:#8a8070;
+  --green:#2d6a35;--green2:#4a9e55;--green-bg:#eef7ef;
+  --red:#c0392b;--red-bg:#fdf0ef;--blue:#1a5fa8;
+  --r:12px;--shadow:0 2px 14px rgba(26,26,20,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+
+/* LOGIN */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.login-box{background:#fff;border-radius:20px;padding:36px 28px;width:100%;max-width:380px;box-shadow:var(--shadow);text-align:center}
+.login-logo{font-size:40px;margin-bottom:14px}
+.login-title{font-family:'Syne',sans-serif;font-size:20px;margin-bottom:6px}
+.login-sub{font-size:13px;color:var(--ink3);margin-bottom:24px}
+.login-input{width:100%;background:var(--bg);border:2px solid transparent;border-radius:var(--r);font-family:'Noto Sans TC',sans-serif;font-size:16px;padding:13px 16px;outline:none;margin-bottom:12px;transition:border-color .2s}
+.login-input:focus{border-color:var(--green)}
+.login-btn{width:100%;background:var(--ink);color:#f5f0e8;border:none;border-radius:var(--r);font-family:'Noto Sans TC',sans-serif;font-size:15px;font-weight:700;padding:14px;cursor:pointer;transition:all .18s}
+.login-btn:active{transform:scale(.98)}
+.login-err{color:var(--red);font-size:13px;margin-top:10px;display:none}
+
+/* ADMIN */
+#admin-screen{display:none;min-height:100vh}
+.topbar{background:var(--ink);color:#f5f0e8;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-title{font-family:'Syne',sans-serif;font-size:14px;letter-spacing:.08em}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.logout-btn{background:rgba(255,255,255,.15);border:none;color:#f5f0e8;font-family:'Noto Sans TC',sans-serif;font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer}
+
+/* FILTERS */
+.filters{padding:18px 24px;background:#fff;border-bottom:1px solid var(--bg2);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.filter-sel{background:var(--bg);border:2px solid transparent;border-radius:var(--r);font-family:'Noto Sans TC',sans-serif;font-size:14px;padding:9px 14px;outline:none;cursor:pointer;transition:border-color .2s}
+.filter-sel:focus{border-color:var(--green)}
+.filter-btn{background:var(--ink);color:#f5f0e8;border:none;border-radius:var(--r);font-family:'Noto Sans TC',sans-serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer}
+.count-badge{font-size:12px;color:var(--ink3);margin-left:auto}
+.count-badge strong{color:var(--green)}
+
+/* TABLE */
+.table-wrap{padding:20px 24px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+th{background:var(--ink);color:#f5f0e8;font-size:12px;font-weight:700;letter-spacing:.08em;padding:12px 14px;text-align:left}
+td{font-size:13px;padding:11px 14px;border-bottom:1px solid var(--bg2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg)}
+
+.hat-pills{display:flex;flex-wrap:wrap;gap:4px}
+.hat-pill{font-size:11px;padding:2px 7px;border-radius:10px;background:var(--bg2);color:var(--ink2)}
+.progress-bar{display:flex;gap:3px}
+.p-dot{width:10px;height:10px;border-radius:50%;background:var(--bg2)}
+.p-dot.done{background:var(--green)}
+.p-dot.current{background:var(--ink)}
+
+.action-btns{display:flex;gap:6px}
+.btn-edit{background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:12px;padding:6px 12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif}
+.btn-del{background:var(--red);color:#fff;border:none;border-radius:8px;font-size:12px;padding:6px 12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif}
+.btn-edit:active,.btn-del:active{opacity:.8}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:48px 24px;color:var(--ink3)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,26,20,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s}
+.modal-overlay.hidden{display:none}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{background:#fff;border-radius:18px;padding:26px 24px;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,.18)}
+.modal-title{font-family:'Syne',sans-serif;font-size:17px;margin-bottom:16px}
+.modal-field{margin-bottom:14px}
+.modal-label{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin-bottom:7px;display:block}
+.modal-sel,.modal-input{width:100%;background:var(--bg);border:2px solid transparent;border-radius:var(--r);font-family:'Noto Sans TC',sans-serif;font-size:15px;padding:11px 14px;outline:none;transition:border-color .2s}
+.modal-sel:focus,.modal-input:focus{border-color:var(--green)}
+.modal-btns{display:flex;gap:10px;margin-top:20px}
+.modal-btns button{flex:1;border:none;border-radius:var(--r);font-family:'Noto Sans TC',sans-serif;font-size:14px;font-weight:700;padding:12px;cursor:pointer}
+.modal-cancel{background:var(--bg2);color:var(--ink)}
+.modal-save{background:var(--green);color:#fff}
+
+/* DELETE CONFIRM */
+.del-modal .modal-title{color:var(--red)}
+.del-modal .modal-desc{font-size:13px;color:var(--ink3);line-height:1.75;margin-bottom:4px}
+.modal-save-red{background:var(--red);color:#fff}
+
+/* TOAST */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--ink);color:#f5f0e8;border-radius:30px;padding:10px 20px;font-size:13px;z-index:9999;opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* STATS */
+.stats-bar{display:flex;gap:10px;padding:16px 24px 0;flex-wrap:wrap}
+.stat-card{background:#fff;border-radius:var(--r);padding:14px 18px;flex:1;min-width:120px;box-shadow:var(--shadow)}
+.stat-num{font-family:'Syne',sans-serif;font-size:24px;color:var(--green);margin-bottom:3px}
+.stat-label{font-size:11px;color:var(--ink3);letter-spacing:.06em}
+
+/* LOADING */
+.loading{text-align:center;padding:40px;color:var(--ink3)}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--bg2);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🌍</div>
+    <div class="login-title">管理員後台</div>
+    <div class="login-sub">地球日 × 六頂思考帽</div>
+    <input class="login-input" type="password" id="pw-input" placeholder="輸入管理員密碼"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">登入</button>
+    <div class="login-err" id="login-err">密碼錯誤，請再試一次</div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="admin-screen">
+  <div class="topbar">
+    <div class="topbar-title">🌍 管理員後台 · 六頂思考帽</div>
+    <div class="topbar-right">
+      <button class="logout-btn" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">總筆數</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-done">—</div><div class="stat-label">已完成</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-progress">—</div><div class="stat-label">進行中</div></div>
+  </div>
+
+  <div class="filters">
+    <select class="filter-sel" id="f-class" onchange="applyFilter()">
+      <option value="">全部班級</option>
+      <option value="704">704</option>
+      <option value="708">708</option>
+      <option value="717">717</option>
+    </select>
+    <select class="filter-sel" id="f-group" onchange="applyFilter()">
+      <option value="">全部組別</option>
+      <option value="1">第 1 組</option>
+      <option value="2">第 2 組</option>
+      <option value="3">第 3 組</option>
+      <option value="4">第 4 組</option>
+      <option value="5">第 5 組</option>
+      <option value="6">第 6 組</option>
+      <option value="7">第 7 組</option>
+      <option value="8">第 8 組</option>
+    </select>
+    <button class="filter-btn" onclick="loadData()">🔄 重新載入</button>
+    <span class="count-badge">顯示 <strong id="showing-count">0</strong> 筆</span>
+  </div>
+
+  <div class="table-wrap">
+    <div id="table-container"><div class="loading"><div class="spinner"></div><br>載入中…</div></div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay hidden" id="edit-modal">
+  <div class="modal-box">
+    <div class="modal-title">✏️ 修改學生資料</div>
+    <input type="hidden" id="edit-old-id">
+    <div class="modal-field">
+      <label class="modal-label">班級</label>
+      <select class="modal-sel" id="edit-class">
+        <option value="704">704</option>
+        <option value="708">708</option>
+        <option value="717">717</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">組別</label>
+      <select class="modal-sel" id="edit-group">
+        <option value="1">第 1 組</option>
+        <option value="2">第 2 組</option>
+        <option value="3">第 3 組</option>
+        <option value="4">第 4 組</option>
+        <option value="5">第 5 組</option>
+        <option value="6">第 6 組</option>
+        <option value="7">第 7 組</option>
+        <option value="8">第 8 組</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">座號</label>
+      <select class="modal-sel" id="edit-seat"></select>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeEditModal()">取消</button>
+      <button class="modal-save" onclick="saveEdit()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay hidden" id="del-modal">
+  <div class="modal-box del-modal">
+    <div class="modal-title">🗑️ 確認刪除</div>
+    <input type="hidden" id="del-target-id">
+    <div class="modal-desc" id="del-desc">確定要刪除這筆資料嗎？</div>
+    <div class="modal-desc" style="color:var(--red);font-weight:700;margin-top:8px">此操作無法復原。</div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeDelModal()">取消</button>
+      <button class="modal-save modal-save-red" onclick="confirmDelete()">確定刪除</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, deleteDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyATDzAF9W9IPKlcY_l6efcRp0kzvg14ci4",
+  authDomain: "earth-day-six-thinking-hats.firebaseapp.com",
+  projectId: "earth-day-six-thinking-hats",
+  storageBucket: "earth-day-six-thinking-hats.firebasestorage.app",
+  messagingSenderId: "932580651646",
+  appId: "1:932580651646:web:235ca3b955bec6ad589e2f"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const PASS = 'ellieyeye';
+const HAT_ORDER = ['white','red','yellow','black','green'];
+const HAT_NAMES = {white:'🤍白',red:'❤️紅',yellow:'💛黃',black:'🖤黑',green:'💚綠',blue:'💙藍'};
+
+let allData = [];
+
+// ── LOGIN ──
+window.doLogin = () => {
+  const pw = document.getElementById('pw-input').value;
+  if(pw === PASS){
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-screen').style.display = 'block';
+    // init seat select in edit modal
+    const sel = document.getElementById('edit-seat');
+    for(let i=1;i<=35;i++){
+      const o = document.createElement('option');
+      o.value=i; o.textContent=i;
+      sel.appendChild(o);
+    }
+    loadData();
+  } else {
+    document.getElementById('login-err').style.display = 'block';
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-input').focus();
+  }
+};
+
+window.doLogout = () => {
+  document.getElementById('admin-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pw-input').value = '';
+};
+
+// ── LOAD ──
+window.loadData = async () => {
+  document.getElementById('table-container').innerHTML =
+    '<div class="loading"><div class="spinner"></div><br>載入中…</div>';
+  const snap = await getDocs(collection(db,'sessions'));
+  allData = [];
+  snap.forEach(d => allData.push({id: d.id, ...d.data()}));
+  allData.sort((a,b) => {
+    if(a.cls !== b.cls) return a.cls.localeCompare(b.cls);
+    if(a.group !== b.group) return Number(a.group) - Number(b.group);
+    return Number(a.seat) - Number(b.seat);
+  });
+  updateStats();
+  applyFilter();
+};
+
+function updateStats(){
+  const total = allData.length;
+  const done = allData.filter(d => d.finalPlan).length;
+  const prog = allData.filter(d => !d.finalPlan && d.selectedActions?.length > 0).length;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-done').textContent = done;
+  document.getElementById('stat-progress').textContent = prog;
+}
+
+window.applyFilter = () => {
+  const cls = document.getElementById('f-class').value;
+  const grp = document.getElementById('f-group').value;
+  let filtered = allData;
+  if(cls) filtered = filtered.filter(d => d.cls === cls);
+  if(grp) filtered = filtered.filter(d => d.group === grp);
+  document.getElementById('showing-count').textContent = filtered.length;
+  renderTable(filtered);
+};
+
+function renderTable(data){
+  if(data.length === 0){
+    document.getElementById('table-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">📭</div><div>目前沒有資料</div></div>';
+    return;
+  }
+
+  const rows = data.map(d => {
+    const hats = (d.hats||[]).map(h => `<span class="hat-pill">${HAT_NAMES[h]||h}</span>`).join('');
+    const hatIdx = d.hatIdx || 0;
+    const dots = HAT_ORDER.map((h,i) => {
+      const ans = d.answers?.[h];
+      const cls = ans ? 'done' : i === hatIdx && d.selectedActions?.length > 0 ? 'current' : '';
+      return `<div class="p-dot ${cls}" title="${HAT_NAMES[h]}"></div>`;
+    }).join('');
+
+    const status = d.finalPlan ? '✅ 已完成' :
+                   d.selectedActions?.length > 0 ? '🔄 進行中' : '⏳ 未開始';
+    const finalAct = d.finalAction ? d.finalAction.t.slice(0,16)+'…' : '—';
+
+    return `<tr>
+      <td><strong>${d.cls||'—'}</strong></td>
+      <td>第${d.group||'—'}組</td>
+      <td>${d.seat||'—'}</td>
+      <td><div class="hat-pills">${hats||'—'}</div></td>
+      <td><div class="progress-bar">${dots}</div></td>
+      <td>${status}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${finalAct}</td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-edit" onclick="openEditModal('${d.id}')">修改</button>
+          <button class="btn-del" onclick="openDelModal('${d.id}','${d.cls}班第${d.group}組座號${d.seat}')">刪除</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('table-container').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>班級</th><th>組別</th><th>座號</th><th>帽子</th>
+          <th>進度</th><th>狀態</th><th>最終行動</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── EDIT ──
+window.openEditModal = async (docId) => {
+  const item = allData.find(d => d.id === docId);
+  if(!item) return;
+  document.getElementById('edit-old-id').value = docId;
+  document.getElementById('edit-class').value = item.cls;
+  document.getElementById('edit-group').value = item.group;
+  document.getElementById('edit-seat').value = item.seat;
+  document.getElementById('edit-modal').classList.remove('hidden');
+};
+
+window.closeEditModal = () => document.getElementById('edit-modal').classList.add('hidden');
+
+window.saveEdit = async () => {
+  const oldId = document.getElementById('edit-old-id').value;
+  const newCls = document.getElementById('edit-class').value;
+  const newGrp = document.getElementById('edit-group').value;
+  const newSeat = document.getElementById('edit-seat').value;
+  const newId = `${newCls}-${newGrp}-${newSeat}`;
+
+  const item = allData.find(d => d.id === oldId);
+  if(!item){ showToast('找不到原始資料'); return; }
+
+  // check if new ID conflicts with another record
+  if(newId !== oldId){
+    const conflict = await getDoc(doc(db,'sessions', newId));
+    if(conflict.exists()){
+      showToast(`⚠️ ${newCls}班第${newGrp}組座號${newSeat} 已有資料，請先刪除`);
+      return;
+    }
+  }
+
+  // write new doc
+  const newData = {...item, cls:newCls, group:newGrp, seat:newSeat, updatedAt:Date.now()};
+  delete newData.id;
+  await setDoc(doc(db,'sessions', newId), newData);
+
+  // delete old if ID changed
+  if(newId !== oldId){
+    await deleteDoc(doc(db,'sessions', oldId));
+  }
+
+  closeEditModal();
+  showToast(`✅ 已更新為 ${newCls}班第${newGrp}組座號${newSeat}`);
+  await loadData();
+};
+
+// ── DELETE ──
+window.openDelModal = (docId, label) => {
+  document.getElementById('del-target-id').value = docId;
+  document.getElementById('del-desc').textContent = `確定要刪除「${label}」的所有資料嗎？`;
+  document.getElementById('del-modal').classList.remove('hidden');
+};
+
+window.closeDelModal = () => document.getElementById('del-modal').classList.add('hidden');
+
+window.confirmDelete = async () => {
+  const docId = document.getElementById('del-target-id').value;
+  await deleteDoc(doc(db,'sessions', docId));
+  closeDelModal();
+  showToast('🗑️ 已刪除');
+  await loadData();
+};
+
+// ── UTILS ──
+window.showToast = (msg) => {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+};
+
+// Enter key for login
+document.getElementById('pw-input').addEventListener('keydown', e => {
+  if(e.key === 'Enter') window.doLogin();
+});
+</script>
+</body>
+</html>
