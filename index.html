@@ -367,7 +367,7 @@ textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75
     <textarea class="input-text" id="ans-ta" placeholder=""></textarea>
   </div>
   <div class="sticky-footer" id="think-footer">
-    <button class="btn btn-primary" id="btn-think" onclick="handleThinkNext()"></button>
+    <button class="btn btn-primary" id="btn-think"></button>
   </div>
 </div>
 
@@ -855,7 +855,7 @@ function subscribeHatReadiness(hatKey) {
       const total = responders.length;
       if(done >= total) {
         unlockNextBtn(btn);
-        if(statusEl) statusEl.innerHTML = `✅ ${hat_name_for(hatKey)} ${done}/${total} 位已完成，可以繼續`;
+        if(statusEl) statusEl.innerHTML = `✅ ${hat_name_for(hatKey)} 全 ${total} 位已完成，請按下方按鈕繼續`;
       } else {
         lockNextBtn(btn);
         const waiting = responders.filter(r=>!r.answered).map(r=>`座號${r.seat}`).join('、');
@@ -868,20 +868,8 @@ function subscribeHatReadiness(hatKey) {
 function hat_name_for(key){ return HAT_CFG[key]?.name||key; }
 
 function unlockNextBtn(btn){
-  btn.disabled = false;
-  btn.style.background = 'var(--ink)';
-  btn.style.color = '#f5f0e8';
-  btn.style.opacity = '1';
-  btn.style.cursor = 'pointer';
-  // 更新 onclick 為 proceedToNextHat（適用已儲存者 and 非帽子者）
-  const hatKey = HAT_ORDER[S.hatIdx];
-  const isMine = S.hats.includes(hatKey);
-  const alreadySaved = isMine && !!S.answers[hatKey];
-  const isLast = S.hatIdx === HAT_ORDER.length - 1;
-  if(!isMine || alreadySaved){
-    btn.onclick = () => window.proceedToNextHat();
-    btn.textContent = isLast ? '進入藍帽統整 →' : '全組完成，進入下一頂帽子 →';
-  }
+  // 統一呼叫 readyToProceed 處理解鎖 UI
+  window.readyToProceed();
 }
 function lockNextBtn(btn){
   btn.disabled = true;
@@ -949,8 +937,10 @@ function renderThinking(){
 
     const btn = document.getElementById('btn-think');
     const isLast = S.hatIdx===HAT_ORDER.length-1;
-    btn.textContent = isLast ? '進入藍帽統整 →' : '儲存，等待下一頂帽子 →';
+    btn.textContent = isLast ? '儲存，進入藍帽統整 →' : '儲存，等待下一頂帽子 →';
     btn.style.cssText='';
+    btn.disabled = false;
+    btn.onclick = () => window.handleThinkNext();
 
     // live others
     subscribeOthers(hatKey);
@@ -967,11 +957,14 @@ function renderThinking(){
     badge.style.borderColor = colorMap[hatKey];
     document.getElementById('wait-hat-name').textContent = hat.name;
 
-    const btn = document.getElementById('btn-think');
-    const isLast = S.hatIdx===HAT_ORDER.length-1;
-    btn.textContent = isLast ? '進入藍帽統整 →' : '（聆聽完畢）進入下一頂帽子 →';
-    btn.style.background='var(--bg2)';
-    btn.style.color='var(--ink)';
+    // 非此帽子者：按鈕鎖定，等全組完成後由 subscribeHatReadiness 解鎖
+    const waitBtn = document.getElementById('btn-think');
+    waitBtn.textContent = '⏳ 等待負責同學完成…';
+    waitBtn.disabled = true;
+    waitBtn.style.background = 'var(--bg2)';
+    waitBtn.style.color = 'var(--ink3)';
+    waitBtn.style.opacity = '0.6';
+    waitBtn.style.cursor = 'not-allowed';
     subscribeHatReadiness(hatKey);
   }
 }
@@ -1005,37 +998,44 @@ function subscribeOthers(hatKey){
   });
 }
 
+// 作答者按「儲存」
 window.handleThinkNext = async () => {
   const hatKey = HAT_ORDER[S.hatIdx];
-  const isMyHat = S.hats.includes(hatKey);
-
-  if(isMyHat){
-    const ans = document.getElementById('ans-ta').value.trim();
-    if(!ans){ showToast('請輸入思考內容再繼續'); return; }
-    S.answers[hatKey] = ans;
-    showLoading('儲存中…');
-    const ref = doc(db,'sessions', S.docId);
-    await setDoc(ref,{answers:S.answers, updatedAt:Date.now()},{merge:true});
-    hideLoading();
-    showToast('✅ 已儲存，等待同組完成…');
-    // 儲存後按鈕先鎖定，等 subscribeHatReadiness 解鎖
-    const btn = document.getElementById('btn-think');
-    lockNextBtn(btn);
-    return; // 等待解鎖後才能繼續
-  }
-
-  // 非此帽子 or 按鈕已解鎖才能前進
-  if(unsubHatStatus){ unsubHatStatus(); unsubHatStatus=null; }
-  if(S.hatIdx >= HAT_ORDER.length-1){ goToBlue(); return; }
-  S.hatIdx++;
-  await setDoc(doc(db,'sessions',S.docId),{hatIdx:S.hatIdx},{merge:true});
-  renderThinking();
-  document.getElementById('s-think').scrollTop=0;
+  const ans = document.getElementById('ans-ta').value.trim();
+  if(!ans){ showToast('請輸入思考內容再繼續'); return; }
+  S.answers[hatKey] = ans;
+  showLoading('儲存中…');
+  await setDoc(doc(db,'sessions', S.docId), {answers:S.answers, updatedAt:Date.now()}, {merge:true});
+  hideLoading();
+  showToast('✅ 已儲存！等待同組其他人完成…');
+  // 按鈕改為「等待中」狀態，subscribeHatReadiness 會在全組完成時解鎖
+  const btn = document.getElementById('btn-think');
+  btn.textContent = '⏳ 等待同組完成…';
+  btn.disabled = true;
+  btn.style.background = 'var(--bg2)';
+  btn.style.color = 'var(--ink3)';
+  btn.style.opacity = '0.7';
+  btn.style.cursor = 'not-allowed';
+  // subscribeHatReadiness 已在執行中，它偵測到全組完成後會呼叫 readyToProceed()
 };
 
-// 當帽子完成後前進（由解鎖按鈕觸發）
+// 全組完成後，subscribeHatReadiness 呼叫此函式解鎖
+window.readyToProceed = () => {
+  const btn = document.getElementById('btn-think');
+  const isLast = S.hatIdx === HAT_ORDER.length - 1;
+  btn.disabled = false;
+  btn.textContent = isLast ? '✅ 全組完成，進入藍帽統整 →' : '✅ 全組完成，進入下一頂帽子 →';
+  btn.style.background = 'var(--green)';
+  btn.style.color = '#fff';
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+  btn.onclick = () => window.proceedToNextHat();
+};
+
+// 實際前進到下一頂帽子（所有人共用）
 window.proceedToNextHat = async () => {
   if(unsubHatStatus){ unsubHatStatus(); unsubHatStatus=null; }
+  if(unsubOthers){ unsubOthers(); unsubOthers=null; }
   if(S.hatIdx >= HAT_ORDER.length-1){ goToBlue(); return; }
   S.hatIdx++;
   await setDoc(doc(db,'sessions',S.docId),{hatIdx:S.hatIdx},{merge:true});
