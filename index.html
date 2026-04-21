@@ -322,7 +322,7 @@ textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75
   <div class="actions-wrap" id="actions-list"></div>
   <div class="sticky-footer">
     <div class="sel-status">已選 <strong id="sel-count">0</strong> / 2 項</div>
-    <button class="btn btn-primary" id="btn-actions" onclick="saveActionsAndGo()" disabled>開始思考帽討論 →</button>
+    <button class="btn btn-primary" id="btn-actions" onclick="confirmActionsAndGo()" disabled>開始思考帽討論 →</button>
   </div>
 </div>
 
@@ -338,6 +338,7 @@ textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75
     <div class="stage-role" id="st-role">客觀事實與數據</div>
   </div>
   <div class="h-prog" id="h-prog"></div>
+  <div id="hat-readiness" style="text-align:center;font-size:12px;color:var(--ink3);padding:8px 20px 0;min-height:20px;display:flex;align-items:center;justify-content:center;gap:5px"></div>
   <div class="wait-body" id="wait-body" style="display:none">
     <div class="wait-badge" id="wait-badge">🤍 白帽</div>
     <div class="wait-icon">👂</div>
@@ -574,8 +575,29 @@ window.confirmStart = async () => {
     await setDoc(ref, {cls:S.cls, group:S.group, seat:S.seat, hats:S.hats,
       selectedActions:[], hatIdx:0, answers:{}, finalAction:null, finalPlan:'',
       updatedAt: Date.now()});
-    showScreen('s-actions');
-    renderActions('all');
+    hideLoading();
+    // 新進者：先檢查同組是否已有人選好行動
+    showLoading('確認同組進度中…');
+    const groupActions = await checkGroupActions();
+    hideLoading();
+    if(groupActions){
+      S.selectedActions = groupActions;
+      await setDoc(ref, {selectedActions: groupActions, updatedAt:Date.now()}, {merge:true});
+      const box = document.createElement('div');
+      box.className = 'modal-overlay';
+      box.innerHTML = `<div class="modal-box">
+        <div class="modal-title">🔗 已載入同組選擇</div>
+        <div class="modal-sub" style="margin-bottom:14px">你的同組成員已選好行動，你將使用相同的選擇進行討論。</div>
+        <div style="background:var(--green-bg);border:1.5px solid var(--green2);border-radius:12px;padding:14px;margin-bottom:16px">
+          ${groupActions.map(a=>`<div style="font-size:14px;font-weight:700;margin-bottom:4px">${a.n}. ${a.t}</div>`).join('')}
+        </div>
+        <button class="btn btn-green" onclick="this.closest('.modal-overlay').remove(); startDiscussion()">開始討論 →</button>
+      </div>`;
+      document.body.appendChild(box);
+    } else {
+      showScreen('s-actions');
+      renderActions('all');
+    }
   }
 };
 
@@ -624,8 +646,26 @@ window.resumeProgress = (data, modal) => {
   else { showScreen('s-actions'); renderActions('all'); }
 };
 
+
 // ── ACTIONS ──
-const allActions = Object.entries(ACTIONS).flatMap(([cat,items])=>items.map(a=>({...a,cat})));
+// 檢查同組是否已有選擇
+async function checkGroupActions() {
+  const q = window._fbFns.query(
+    window._fbFns.collection(db,'sessions'),
+    window._fbFns.where('cls','==',S.cls),
+    window._fbFns.where('group','==',S.group)
+  );
+  const snap = await window._fbFns.getDocs(q);
+  let groupActions = null;
+  snap.forEach(d => {
+    const data = d.data();
+    if(data.selectedActions && data.selectedActions.length >= 2) {
+      groupActions = data.selectedActions;
+    }
+  });
+  return groupActions;
+}
+
 window.renderActions = (cat) => {
   const list = document.getElementById('actions-list');
   list.innerHTML='';
@@ -666,17 +706,191 @@ window.filterCat = (tab, cat) => {
   window.renderActions(cat);
 };
 
+// 儲存前確認彈窗
+window.confirmActionsAndGo = () => {
+  const a1 = S.selectedActions[0];
+  const a2 = S.selectedActions[1];
+  const box = document.createElement('div');
+  box.className = 'modal-overlay';
+  box.id = 'action-confirm-modal';
+  box.innerHTML = `<div class="modal-box">
+    <div class="modal-title">📋 確認你們組的選擇</div>
+    <div class="modal-sub" style="margin-bottom:14px">
+      請確認全組同學都選了<strong>相同的兩項行動</strong>再繼續。<br>
+      <span style="color:var(--red);font-size:12px">⚠️ 送出後，全組將統一使用這兩項行動進行討論。</span>
+    </div>
+    <div style="background:var(--green-bg);border:1.5px solid var(--green2);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:8px">我選的兩項行動</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">${a1.n}. ${a1.t}</div>
+      <div style="font-size:14px;font-weight:700">${a2.n}. ${a2.t}</div>
+    </div>
+    <div style="font-size:13px;color:var(--ink3);margin-bottom:16px">已和組員確認選擇一致了嗎？</div>
+    <div class="modal-btns">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('action-confirm-modal').remove()">返回修改</button>
+      <button class="btn btn-green btn-sm" onclick="saveActionsAndGo()">確認，開始討論 →</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+};
+
 window.saveActionsAndGo = async () => {
-  showLoading('儲存中…');
+  document.getElementById('action-confirm-modal')?.remove();
+  showLoading('確認同組選擇中…');
+
+  // 檢查同組是否已有人儲存不同的行動
+  const groupActions = await checkGroupActions();
+  if(groupActions) {
+    // 同組已有人選了，鎖定使用同組的選擇
+    S.selectedActions = groupActions;
+    hideLoading();
+    // 顯示提示
+    const box = document.createElement('div');
+    box.className = 'modal-overlay';
+    box.innerHTML = `<div class="modal-box">
+      <div class="modal-title">🔗 已載入同組選擇</div>
+      <div class="modal-sub" style="margin-bottom:14px">你的同組成員已選好行動，你將使用相同的選擇進行討論。</div>
+      <div style="background:var(--green-bg);border:1.5px solid var(--green2);border-radius:12px;padding:14px;margin-bottom:16px">
+        ${S.selectedActions.map(a=>`<div style="font-size:14px;font-weight:700;margin-bottom:4px">${a.n}. ${a.t}</div>`).join('')}
+      </div>
+      <button class="btn btn-green" onclick="this.closest('.modal-overlay').remove(); startDiscussion()">開始討論 →</button>
+    </div>`;
+    document.body.appendChild(box);
+    await setDoc(doc(db,'sessions', S.docId), {selectedActions: S.selectedActions, hatIdx:0, updatedAt:Date.now()}, {merge:true});
+    return;
+  }
+
+  // 第一個選的人，直接存入
   const ref = doc(db,'sessions', S.docId);
-  await setDoc(ref, {selectedActions: S.selectedActions, updatedAt:Date.now()}, {merge:true});
+  await setDoc(ref, {selectedActions: S.selectedActions, hatIdx:0, updatedAt:Date.now()}, {merge:true});
   hideLoading();
+  startDiscussion();
+};
+
+window.startDiscussion = () => {
   S.hatIdx = 0;
   showScreen('s-think');
   renderThinking();
 };
 
+
 // ── THINKING ──
+// 訂閱同組帽子完成狀態，控制「下一步」按鈕解鎖
+let unsubHatStatus = null;
+
+function getGroupHatResponders(hatKey, groupSnap) {
+  // 回傳同組中擔任此帽子的座號清單
+  const responders = [];
+  let anyoneHasHat = false;
+  groupSnap.forEach(d => {
+    const data = d.data();
+    if((data.hats||[]).includes(hatKey)) {
+      anyoneHasHat = true;
+      responders.push({seat: data.seat, answered: !!(data.answers?.[hatKey])});
+    }
+  });
+  return {responders, anyoneHasHat};
+}
+
+function subscribeHatReadiness(hatKey) {
+  if(unsubHatStatus){ unsubHatStatus(); unsubHatStatus=null; }
+
+  const q = window._fbFns.query(
+    window._fbFns.collection(db,'sessions'),
+    window._fbFns.where('cls','==',S.cls),
+    window._fbFns.where('group','==',S.group)
+  );
+
+  unsubHatStatus = window._fbFns.onSnapshot(q, snap => {
+    const {responders, anyoneHasHat} = getGroupHatResponders(hatKey, snap);
+    const btn = document.getElementById('btn-think');
+    const statusEl = document.getElementById('hat-readiness');
+
+    if(!anyoneHasHat) {
+      // 無人擔任此帽子 → 開放全組填寫，等至少一人完成
+      // 顯示作答區給所有人
+      document.getElementById('wait-body').style.display='none';
+      document.getElementById('answer-body').style.display='block';
+      const hatKey2 = HAT_ORDER[S.hatIdx];
+      const hat2 = HAT_CFG[hatKey2];
+      document.getElementById('pills-ct').innerHTML =
+        S.selectedActions.map(a=>`<span class="pill">${a.n}. ${a.t.slice(0,18)}${a.t.length>18?'…':''}</span>`).join('');
+      document.getElementById('q-label').textContent = hat2.emoji+' '+hat2.name+'提問（開放填寫）';
+      document.getElementById('q-text').textContent = hat2.question;
+      document.getElementById('rules-box').innerHTML = '本組未指定此帽子，<strong>任何人都可以填寫</strong>。至少一人填寫完成後即可繼續。';
+      const sh = document.getElementById('search-hint');
+      if(hat2.showSearch){
+        sh.style.display='block';
+        const kws = S.selectedActions.flatMap(a=>SEARCH_HINTS[a.n]?.kws||[]);
+        document.getElementById('sh-kws').innerHTML = [...new Set(kws)].map(k=>
+          `<span class="sh-kw" onclick="copyKw(this,'${k}')">${k}</span>`).join('');
+      } else { sh.style.display='none'; }
+      const ta = document.getElementById('ans-ta');
+      if(!ta.value) ta.value = S.answers[hatKey2]||'';
+      ta.placeholder = `從「${hat2.role}」的角度，針對你們選的行動寫下你的觀點…`;
+      const openBtn = document.getElementById('btn-think');
+      openBtn.textContent = '儲存，等待同組完成 →';
+      openBtn.onclick = async () => {
+        const ans = document.getElementById('ans-ta').value.trim();
+        if(!ans){ showToast('請輸入思考內容再繼續'); return; }
+        S.answers[hatKey2] = ans;
+        showLoading('儲存中…');
+        await setDoc(doc(db,'sessions',S.docId),{answers:S.answers, updatedAt:Date.now()},{merge:true});
+        hideLoading();
+        showToast('✅ 已儲存，等待同組完成…');
+        lockNextBtn(openBtn);
+      };
+
+      let anyAnswered = false;
+      snap.forEach(d => { if(d.data().answers?.[hatKey]) anyAnswered = true; });
+      if(anyAnswered) {
+        unlockNextBtn(btn);
+        if(statusEl) statusEl.innerHTML = '✅ 已有組員回答，可以進入下一頂帽子';
+      } else {
+        lockNextBtn(btn);
+        if(statusEl) statusEl.innerHTML = '<span class="live-dot"></span>本組未指定此帽子，開放任何人填寫';
+      }
+    } else {
+      // 有指定擔任者 → 等全部完成
+      const done = responders.filter(r=>r.answered).length;
+      const total = responders.length;
+      if(done >= total) {
+        unlockNextBtn(btn);
+        if(statusEl) statusEl.innerHTML = `✅ ${hat_name_for(hatKey)} ${done}/${total} 位已完成，可以繼續`;
+      } else {
+        lockNextBtn(btn);
+        const waiting = responders.filter(r=>!r.answered).map(r=>`座號${r.seat}`).join('、');
+        if(statusEl) statusEl.innerHTML = `<span class="live-dot"></span>等待中：${waiting} 尚未完成`;
+      }
+    }
+  });
+}
+
+function hat_name_for(key){ return HAT_CFG[key]?.name||key; }
+
+function unlockNextBtn(btn){
+  btn.disabled = false;
+  btn.style.background = 'var(--ink)';
+  btn.style.color = '#f5f0e8';
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+  // 更新 onclick 為 proceedToNextHat（適用已儲存者 and 非帽子者）
+  const hatKey = HAT_ORDER[S.hatIdx];
+  const isMine = S.hats.includes(hatKey);
+  const alreadySaved = isMine && !!S.answers[hatKey];
+  const isLast = S.hatIdx === HAT_ORDER.length - 1;
+  if(!isMine || alreadySaved){
+    btn.onclick = () => window.proceedToNextHat();
+    btn.textContent = isLast ? '進入藍帽統整 →' : '全組完成，進入下一頂帽子 →';
+  }
+}
+function lockNextBtn(btn){
+  btn.disabled = true;
+  btn.style.background = 'var(--bg2)';
+  btn.style.color = 'var(--ink3)';
+  btn.style.opacity = '0.6';
+  btn.style.cursor = 'not-allowed';
+}
+
 function renderThinking(){
   const hatKey = HAT_ORDER[S.hatIdx];
   const hat = HAT_CFG[hatKey];
@@ -702,6 +916,10 @@ function renderThinking(){
 
   // unsubscribe previous listener
   if(unsubOthers){ unsubOthers(); unsubOthers=null; }
+
+  // Check if no one in group has this hat (open to all)
+  // This is checked via subscribeHatReadiness after render
+  const isOpenToAll = false; // will be determined by Firebase listener
 
   if(isMyHat){
     document.getElementById('wait-body').style.display='none';
@@ -736,6 +954,7 @@ function renderThinking(){
 
     // live others
     subscribeOthers(hatKey);
+    subscribeHatReadiness(hatKey);
 
   } else {
     document.getElementById('wait-body').style.display='flex';
@@ -753,6 +972,7 @@ function renderThinking(){
     btn.textContent = isLast ? '進入藍帽統整 →' : '（聆聽完畢）進入下一頂帽子 →';
     btn.style.background='var(--bg2)';
     btn.style.color='var(--ink)';
+    subscribeHatReadiness(hatKey);
   }
 }
 
@@ -788,15 +1008,34 @@ function subscribeOthers(hatKey){
 window.handleThinkNext = async () => {
   const hatKey = HAT_ORDER[S.hatIdx];
   const isMyHat = S.hats.includes(hatKey);
+
   if(isMyHat){
     const ans = document.getElementById('ans-ta').value.trim();
     if(!ans){ showToast('請輸入思考內容再繼續'); return; }
     S.answers[hatKey] = ans;
     showLoading('儲存中…');
     const ref = doc(db,'sessions', S.docId);
-    await setDoc(ref,{answers:S.answers, hatIdx:S.hatIdx+1, updatedAt:Date.now()},{merge:true});
+    await setDoc(ref,{answers:S.answers, updatedAt:Date.now()},{merge:true});
     hideLoading();
+    showToast('✅ 已儲存，等待同組完成…');
+    // 儲存後按鈕先鎖定，等 subscribeHatReadiness 解鎖
+    const btn = document.getElementById('btn-think');
+    lockNextBtn(btn);
+    return; // 等待解鎖後才能繼續
   }
+
+  // 非此帽子 or 按鈕已解鎖才能前進
+  if(unsubHatStatus){ unsubHatStatus(); unsubHatStatus=null; }
+  if(S.hatIdx >= HAT_ORDER.length-1){ goToBlue(); return; }
+  S.hatIdx++;
+  await setDoc(doc(db,'sessions',S.docId),{hatIdx:S.hatIdx},{merge:true});
+  renderThinking();
+  document.getElementById('s-think').scrollTop=0;
+};
+
+// 當帽子完成後前進（由解鎖按鈕觸發）
+window.proceedToNextHat = async () => {
+  if(unsubHatStatus){ unsubHatStatus(); unsubHatStatus=null; }
   if(S.hatIdx >= HAT_ORDER.length-1){ goToBlue(); return; }
   S.hatIdx++;
   await setDoc(doc(db,'sessions',S.docId),{hatIdx:S.hatIdx},{merge:true});
