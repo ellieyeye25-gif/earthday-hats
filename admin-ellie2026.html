@@ -112,10 +112,11 @@ tr:hover td{background:var(--bg)}
     <div class="login-logo">🌍</div>
     <div class="login-title">管理員後台</div>
     <div class="login-sub">地球日 × 六頂思考帽</div>
-    <input class="login-input" type="password" id="pw-input" placeholder="輸入管理員密碼"
-      onkeydown="if(event.key==='Enter')doLogin()">
+    <input class="login-input" type="email" id="email-input" placeholder="管理員 Email"
+      onkeydown="if(event.key==='Enter')document.getElementById('pw-input').focus()">
+    <input class="login-input" type="password" id="pw-input" placeholder="密碼">
     <button class="login-btn" onclick="doLogin()">登入</button>
-    <div class="login-err" id="login-err">密碼錯誤，請再試一次</div>
+    <div class="login-err" id="login-err">登入失敗，請確認 Email 與密碼</div>
   </div>
 </div>
 
@@ -215,6 +216,7 @@ tr:hover td{background:var(--bg)}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, deleteDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyATDzAF9W9IPKlcY_l6efcRp0kzvg14ci4",
@@ -227,38 +229,56 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-const PASS = 'ellieyeye';
 const HAT_ORDER = ['white','red','yellow','black','green'];
 const HAT_NAMES = {white:'🤍白',red:'❤️紅',yellow:'💛黃',black:'🖤黑',green:'💚綠',blue:'💙藍'};
 
 let allData = [];
 
-// ── LOGIN ──
-window.doLogin = () => {
-  const pw = document.getElementById('pw-input').value;
-  if(pw === PASS){
+// ── AUTH STATE ──
+onAuthStateChanged(auth, (user) => {
+  if(user){
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('admin-screen').style.display = 'block';
-    // init seat select in edit modal
     const sel = document.getElementById('edit-seat');
-    for(let i=1;i<=35;i++){
-      const o = document.createElement('option');
-      o.value=i; o.textContent=i;
-      sel.appendChild(o);
+    if(!sel.options.length){
+      for(let i=1;i<=35;i++){
+        const o = document.createElement('option');
+        o.value=i; o.textContent=i;
+        sel.appendChild(o);
+      }
     }
     loadData();
   } else {
-    document.getElementById('login-err').style.display = 'block';
+    document.getElementById('admin-screen').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+});
+
+// ── LOGIN ──
+window.doLogin = async () => {
+  const email = document.getElementById('email-input').value.trim();
+  const pw = document.getElementById('pw-input').value;
+  const errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+  if(!email || !pw){
+    errEl.textContent = '請輸入 Email 與密碼';
+    errEl.style.display = 'block';
+    return;
+  }
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+  } catch(err) {
+    errEl.textContent = '登入失敗，請確認 Email 與密碼是否正確';
+    errEl.style.display = 'block';
     document.getElementById('pw-input').value = '';
     document.getElementById('pw-input').focus();
   }
 };
 
-window.doLogout = () => {
-  document.getElementById('admin-screen').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('pw-input').value = '';
+window.doLogout = async () => {
+  await signOut(auth);
 };
 
 // ── LOAD ──
@@ -416,7 +436,6 @@ window.showToast = (msg) => {
   setTimeout(() => t.classList.remove('show'), 2500);
 };
 
-// Enter key for login
 document.getElementById('pw-input').addEventListener('keydown', e => {
   if(e.key === 'Enter') window.doLogin();
 });
