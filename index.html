@@ -46,7 +46,10 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
 .sel-input:focus,.input-text:focus{border-color:var(--green)}
 textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75}
 
-
+/* ACTION ANSWER BLOCKS (白帽/黃帽多欄位) */
+.action-answer-block{background:#fff;border-radius:var(--r);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.action-answer-label{font-size:12px;font-weight:700;color:var(--green);line-height:1.5;padding-bottom:9px;border-bottom:1px solid var(--bg2);margin-bottom:2px}
+.answer-sub-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-top:10px;margin-bottom:5px;display:block}
 
 /* HAT GRID */
 .hats-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
@@ -364,7 +367,9 @@ textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75
       <div class="others-title">同組其他同學的回答</div>
       <div id="others-ct"><div class="others-empty">目前還沒有其他同學作答</div></div>
     </div>
-    <textarea class="input-text" id="ans-ta" placeholder=""></textarea>
+    <div id="ans-area">
+      <textarea class="input-text" id="ans-ta" placeholder=""></textarea>
+    </div>
   </div>
   <div class="sticky-footer" id="think-footer">
     <button class="btn btn-primary" id="btn-think"></button>
@@ -528,6 +533,8 @@ let S = {
 };
 let unsubOthers = null;
 let unsubBlueOthers = null;
+let alreadyAdvanced = false;
+let ansAreaHatKey = null;
 
 
 
@@ -792,6 +799,7 @@ function getGroupHatResponders(hatKey, groupSnap) {
 }
 
 function subscribeHatReadiness(hatKey) {
+  alreadyAdvanced = false;
   if(unsubHatStatus){ unsubHatStatus(); unsubHatStatus=null; }
 
   const q = window._fbFns.query(
@@ -824,15 +832,18 @@ function subscribeHatReadiness(hatKey) {
         document.getElementById('sh-kws').innerHTML = [...new Set(kws)].map(k=>
           `<span class="sh-kw" onclick="copyKw(this,'${k}')">${k}</span>`).join('');
       } else { sh.style.display='none'; }
-      const ta = document.getElementById('ans-ta');
-      if(!ta.value) ta.value = S.answers[hatKey2]||'';
-      ta.placeholder = `從「${hat2.role}」的角度，針對你們選的行動寫下你的觀點…`;
+      const rawData2 = (hatKey2==='white'||hatKey2==='yellow') ? S.answers[hatKey2+'Raw'] : (S.answers[hatKey2]||'');
+      renderAnswerArea(hatKey2, rawData2);
       const openBtn = document.getElementById('btn-think');
       openBtn.textContent = '儲存，等待同組完成 →';
       openBtn.onclick = async () => {
-        const ans = document.getElementById('ans-ta').value.trim();
-        if(!ans){ showToast('請輸入思考內容再繼續'); return; }
-        S.answers[hatKey2] = ans;
+        const {valid, merged, raw} = gatherAnswers(hatKey2);
+        if(!valid){
+          const msg = hatKey2==='white' ? '請填寫四個欄位再儲存' : hatKey2==='yellow' ? '請填寫兩個欄位再儲存' : '請輸入思考內容再繼續';
+          showToast(msg); return;
+        }
+        S.answers[hatKey2] = merged;
+        if(raw) S.answers[hatKey2+'Raw'] = raw;
         showLoading('儲存中…');
         await setDoc(doc(db,'sessions',S.docId),{answers:S.answers, updatedAt:Date.now()},{merge:true});
         hideLoading();
@@ -857,9 +868,15 @@ function subscribeHatReadiness(hatKey) {
       const iHaveSaved = iAmResponder && !!S.answers[hatKey];
 
       if(done >= total) {
-        // 全組完成 → 所有人解鎖
-        unlockNextBtn(btn);
-        if(statusEl) statusEl.innerHTML = `✅ 全 ${total} 位已完成，請按下方按鈕繼續`;
+        if(!iAmResponder) {
+          // 非答題者：自動跳頁，不需要按鈕
+          if(statusEl) statusEl.innerHTML = `✅ 全 ${total} 位已完成，自動跳至下一步…`;
+          if(!alreadyAdvanced){ alreadyAdvanced = true; window.proceedToNextHat(); }
+        } else {
+          // 答題者：解鎖按鈕，自己按才跳頁
+          unlockNextBtn(btn);
+          if(statusEl) statusEl.innerHTML = `✅ 全 ${total} 位已完成，請按下方按鈕繼續`;
+        }
       } else {
         // 尚未全部完成
         const waiting = responders.filter(r=>!r.answered).map(r=>`座號${r.seat}`).join('、');
@@ -938,9 +955,9 @@ function renderThinking(){
         `<span class="sh-kw" onclick="copyKw(this,'${k}')">${k}</span>`).join('');
     } else { sh.style.display='none'; }
 
-    const ta = document.getElementById('ans-ta');
-    ta.value = S.answers[hatKey]||'';
-    ta.placeholder = `從「${hat.role}」的角度，針對你們選的行動寫下你的觀點…`;
+    ansAreaHatKey = null;
+    const rawData = (hatKey==='white'||hatKey==='yellow') ? S.answers[hatKey+'Raw'] : (S.answers[hatKey]||'');
+    renderAnswerArea(hatKey, rawData);
 
     const btn = document.getElementById('btn-think');
     const isLast = S.hatIdx===HAT_ORDER.length-1;
@@ -976,6 +993,75 @@ function renderThinking(){
   }
 }
 
+function renderAnswerArea(hatKey, rawData) {
+  if(ansAreaHatKey === hatKey) return;
+  ansAreaHatKey = hatKey;
+  const area = document.getElementById('ans-area');
+  if(!area) return;
+  if(hatKey === 'white') {
+    const a1 = S.selectedActions[0] || {};
+    const a2 = S.selectedActions[1] || {};
+    area.innerHTML = `
+      <div class="action-answer-block">
+        <div class="action-answer-label">行動 1：${a1.t||''}</div>
+        <span class="answer-sub-label">具體的數字或事實</span>
+        <textarea class="input-text" id="w-a1-fact" style="min-height:75px">${rawData?.a1fact||''}</textarea>
+        <span class="answer-sub-label">環境影響</span>
+        <textarea class="input-text" id="w-a1-impact" style="min-height:75px">${rawData?.a1impact||''}</textarea>
+      </div>
+      <div class="action-answer-block">
+        <div class="action-answer-label">行動 2：${a2.t||''}</div>
+        <span class="answer-sub-label">具體的數字或事實</span>
+        <textarea class="input-text" id="w-a2-fact" style="min-height:75px">${rawData?.a2fact||''}</textarea>
+        <span class="answer-sub-label">環境影響</span>
+        <textarea class="input-text" id="w-a2-impact" style="min-height:75px">${rawData?.a2impact||''}</textarea>
+      </div>`;
+  } else if(hatKey === 'yellow') {
+    const a1 = S.selectedActions[0] || {};
+    const a2 = S.selectedActions[1] || {};
+    area.innerHTML = `
+      <div class="action-answer-block">
+        <div class="action-answer-label">行動 1：${a1.t||''}</div>
+        <textarea class="input-text" id="y-a1" placeholder="這個行動有什麼好處？對自己、對環境能帶來什麼正面改變？" style="min-height:90px">${rawData?.a1||''}</textarea>
+      </div>
+      <div class="action-answer-block">
+        <div class="action-answer-label">行動 2：${a2.t||''}</div>
+        <textarea class="input-text" id="y-a2" placeholder="這個行動有什麼好處？對自己、對環境能帶來什麼正面改變？" style="min-height:90px">${rawData?.a2||''}</textarea>
+      </div>`;
+  } else {
+    const hat = HAT_CFG[hatKey];
+    area.innerHTML = `<textarea class="input-text" id="ans-ta" style="min-height:100px"></textarea>`;
+    const ta = document.getElementById('ans-ta');
+    ta.value = typeof rawData === 'string' ? rawData : '';
+    ta.placeholder = `從「${hat?.role||''}」的角度，針對你們選的行動寫下你的觀點…`;
+  }
+}
+
+function gatherAnswers(hatKey) {
+  if(hatKey === 'white') {
+    const a1 = S.selectedActions[0] || {};
+    const a2 = S.selectedActions[1] || {};
+    const a1fact   = (document.getElementById('w-a1-fact')?.value   || '').trim();
+    const a1impact = (document.getElementById('w-a1-impact')?.value || '').trim();
+    const a2fact   = (document.getElementById('w-a2-fact')?.value   || '').trim();
+    const a2impact = (document.getElementById('w-a2-impact')?.value || '').trim();
+    const valid = !!(a1fact && a1impact && a2fact && a2impact);
+    const merged = `【行動1：${a1.t}】\n數字/事實：${a1fact}\n環境影響：${a1impact}\n\n【行動2：${a2.t}】\n數字/事實：${a2fact}\n環境影響：${a2impact}`;
+    return {valid, merged, raw: {a1fact, a1impact, a2fact, a2impact}};
+  }
+  if(hatKey === 'yellow') {
+    const a1 = S.selectedActions[0] || {};
+    const a2 = S.selectedActions[1] || {};
+    const a1val = (document.getElementById('y-a1')?.value || '').trim();
+    const a2val = (document.getElementById('y-a2')?.value || '').trim();
+    const valid = !!(a1val && a2val);
+    const merged = `【行動1：${a1.t}】\n${a1val}\n\n【行動2：${a2.t}】\n${a2val}`;
+    return {valid, merged, raw: {a1: a1val, a2: a2val}};
+  }
+  const val = (document.getElementById('ans-ta')?.value || '').trim();
+  return {valid: !!val, merged: val, raw: null};
+}
+
 function subscribeOthers(hatKey){
   const othersEl = document.getElementById('others-ct');
   othersEl.innerHTML='<div class="others-empty"><span class="live-dot"></span>即時載入中…</div>';
@@ -1008,9 +1094,13 @@ function subscribeOthers(hatKey){
 // 作答者按「儲存」
 window.handleThinkNext = async () => {
   const hatKey = HAT_ORDER[S.hatIdx];
-  const ans = document.getElementById('ans-ta').value.trim();
-  if(!ans){ showToast('請輸入思考內容再繼續'); return; }
-  S.answers[hatKey] = ans;
+  const {valid, merged, raw} = gatherAnswers(hatKey);
+  if(!valid){
+    const msg = hatKey==='white' ? '請填寫四個欄位再儲存' : hatKey==='yellow' ? '請填寫兩個欄位再儲存' : '請輸入思考內容再繼續';
+    showToast(msg); return;
+  }
+  S.answers[hatKey] = merged;
+  if(raw) S.answers[hatKey+'Raw'] = raw;
   showLoading('儲存中…');
   await setDoc(doc(db,'sessions', S.docId), {answers:S.answers, updatedAt:Date.now()}, {merge:true});
   hideLoading();
