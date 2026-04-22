@@ -297,9 +297,10 @@ window.loadData = async () => {
   allData = [];
   snap.forEach(d => allData.push({id: d.id, ...d.data()}));
   allData.sort((a,b) => {
-    if(a.cls !== b.cls) return a.cls.localeCompare(b.cls);
-    if(a.group !== b.group) return Number(a.group) - Number(b.group);
-    return Number(a.seat) - Number(b.seat);
+    const aC = a.cls || '', bC = b.cls || '';
+    if(aC !== bC) return aC.localeCompare(bC);
+    if(a.group !== b.group) return Number(a.group||0) - Number(b.group||0);
+    return Number(a.seat||0) - Number(b.seat||0);
   });
   updateStats();
   applyFilter();
