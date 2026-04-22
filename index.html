@@ -170,6 +170,7 @@ textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75
 .other-seat{font-size:11px;color:var(--ink3);margin-bottom:4px}
 .other-text{font-size:13px;line-height:1.7;color:var(--ink2)}
 .others-empty{font-size:12px;color:var(--ink3);font-style:italic;text-align:center;padding:8px 0}
+.black-ref-title{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--black-h);margin-bottom:10px}
 .live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
@@ -363,6 +364,10 @@ textarea.input-text{font-size:14px;resize:none;min-height:100px;line-height:1.75
       <div id="sh-kws"></div>
       <div class="sh-cite">📌 <strong>記得標出處：</strong>資料來源名稱＋搜尋日期<br>範例：「台灣每年使用XX億個塑膠袋。（資料來源：環境部，2026/04/22）」</div>
     </div>
+    <div class="others-panel" id="black-ref-panel" style="display:none">
+      <div class="black-ref-title">🖤 本組黑帽的困難點</div>
+      <div id="black-ref-ct"><div class="others-empty">載入中…</div></div>
+    </div>
     <div class="others-panel">
       <div class="others-title">同組其他同學的回答</div>
       <div id="others-ct"><div class="others-empty">目前還沒有其他同學作答</div></div>
@@ -533,6 +538,7 @@ let S = {
 };
 let unsubOthers = null;
 let unsubBlueOthers = null;
+let unsubBlackRef = null;
 let alreadyAdvanced = false;
 let ansAreaHatKey = null;
 
@@ -938,8 +944,10 @@ function renderThinking(){
     prog.appendChild(d);
   });
 
-  // unsubscribe previous listener
+  // unsubscribe previous listeners
   if(unsubOthers){ unsubOthers(); unsubOthers=null; }
+  if(unsubBlackRef){ unsubBlackRef(); unsubBlackRef=null; }
+  document.getElementById('black-ref-panel').style.display = 'none';
 
   // Check if no one in group has this hat (open to all)
   // This is checked via subscribeHatReadiness after render
@@ -980,6 +988,14 @@ function renderThinking(){
 
     // live others
     subscribeOthers(hatKey);
+
+    // 綠帽：顯示黑帽困難點參照區塊
+    const blackRefPanel = document.getElementById('black-ref-panel');
+    if(hatKey === 'green') {
+      blackRefPanel.style.display = 'block';
+      subscribeBlackRef();
+    }
+
     subscribeHatReadiness(hatKey);
 
   } else {
@@ -1074,6 +1090,32 @@ function gatherAnswers(hatKey) {
   return {valid: !!val, merged: val, raw: null};
 }
 
+function subscribeBlackRef() {
+  if(unsubBlackRef){ unsubBlackRef(); unsubBlackRef = null; }
+  const ct = document.getElementById('black-ref-ct');
+  if(!ct) return;
+  ct.innerHTML = '<div class="others-empty"><span class="live-dot"></span>即時載入中…</div>';
+  const q = window._fbFns.query(
+    window._fbFns.collection(db,'sessions'),
+    window._fbFns.where('cls','==',S.cls),
+    window._fbFns.where('group','==',S.group)
+  );
+  unsubBlackRef = window._fbFns.onSnapshot(q, snap => {
+    const entries = [];
+    snap.forEach(d => {
+      const ans = d.data().answers?.black;
+      if(ans) entries.push({seat: d.data().seat, ans});
+    });
+    ct.innerHTML = entries.length
+      ? entries.map(e=>`
+          <div class="other-entry">
+            <div class="other-seat">座號 ${e.seat}</div>
+            <div class="other-text">${esc(e.ans)}</div>
+          </div>`).join('')
+      : '<div class="others-empty">本組黑帽尚未作答</div>';
+  });
+}
+
 function subscribeOthers(hatKey){
   const othersEl = document.getElementById('others-ct');
   othersEl.innerHTML='<div class="others-empty"><span class="live-dot"></span>即時載入中…</div>';
@@ -1145,6 +1187,7 @@ window.readyToProceed = () => {
 window.proceedToNextHat = async () => {
   if(unsubHatStatus){ unsubHatStatus(); unsubHatStatus=null; }
   if(unsubOthers){ unsubOthers(); unsubOthers=null; }
+  if(unsubBlackRef){ unsubBlackRef(); unsubBlackRef=null; }
   if(S.hatIdx >= HAT_ORDER.length-1){ goToBlue(); return; }
   S.hatIdx++;
   await setDoc(doc(db,'sessions',S.docId),{hatIdx:S.hatIdx},{merge:true});
@@ -1155,6 +1198,7 @@ window.proceedToNextHat = async () => {
 // ── BLUE HAT ──
 window.goToBlue = async () => {
   if(unsubOthers){ unsubOthers(); unsubOthers=null; }
+  if(unsubBlackRef){ unsubBlackRef(); unsubBlackRef=null; }
   showScreen('s-blue');
 
   document.getElementById('blue-pills').innerHTML =
