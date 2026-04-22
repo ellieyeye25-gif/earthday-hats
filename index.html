@@ -809,65 +809,77 @@ function subscribeHatReadiness(hatKey) {
   );
 
   unsubHatStatus = window._fbFns.onSnapshot(q, snap => {
+    // 使用 closure 的 hatKey 參數，避免 S.hatIdx 在回調觸發前被改動的 race condition
     const {responders, anyoneHasHat} = getGroupHatResponders(hatKey, snap);
     const btn = document.getElementById('btn-think');
     const statusEl = document.getElementById('hat-readiness');
 
     if(!anyoneHasHat) {
-      // 無人擔任此帽子 → 開放全組填寫，等至少一人完成
-      // 顯示作答區給所有人
-      document.getElementById('wait-body').style.display='none';
-      document.getElementById('answer-body').style.display='block';
-      const hatKey2 = HAT_ORDER[S.hatIdx];
-      const hat2 = HAT_CFG[hatKey2];
+      // ── Open-to-all：本組無人擔任此帽子，開放所有人填寫 ──
+      // 完成條件：至少一人有填寫
+      document.getElementById('wait-body').style.display = 'none';
+      document.getElementById('answer-body').style.display = 'block';
+      const hat = HAT_CFG[hatKey];
       document.getElementById('pills-ct').innerHTML =
         S.selectedActions.map(a=>`<span class="pill">${a.n}. ${a.t.slice(0,18)}${a.t.length>18?'…':''}</span>`).join('');
-      document.getElementById('q-label').textContent = hat2.emoji+' '+hat2.name+'提問（開放填寫）';
-      document.getElementById('q-text').textContent = hat2.question;
+      document.getElementById('q-label').textContent = hat.emoji+' '+hat.name+'提問（開放填寫）';
+      document.getElementById('q-text').textContent = hat.question;
       document.getElementById('rules-box').innerHTML = '本組未指定此帽子，<strong>任何人都可以填寫</strong>。至少一人填寫完成後即可繼續。';
       const sh = document.getElementById('search-hint');
-      if(hat2.showSearch){
-        sh.style.display='block';
+      if(hat.showSearch){
+        sh.style.display = 'block';
         const kws = S.selectedActions.flatMap(a=>SEARCH_HINTS[a.n]?.kws||[]);
         document.getElementById('sh-kws').innerHTML = [...new Set(kws)].map(k=>
           `<span class="sh-kw" onclick="copyKw(this,'${k}')">${k}</span>`).join('');
-      } else { sh.style.display='none'; }
-      const rawData2 = (hatKey2==='white'||hatKey2==='yellow') ? S.answers[hatKey2+'Raw'] : (S.answers[hatKey2]||'');
-      renderAnswerArea(hatKey2, rawData2);
-      const openBtn = document.getElementById('btn-think');
-      openBtn.textContent = '儲存，等待同組完成 →';
-      openBtn.onclick = async () => {
-        const {valid, merged, raw} = gatherAnswers(hatKey2);
-        if(!valid){
-          const msg = hatKey2==='white' ? '請填寫四個欄位再儲存' : hatKey2==='yellow' ? '請填寫兩個欄位再儲存' : '請輸入思考內容再繼續';
-          showToast(msg); return;
-        }
-        S.answers[hatKey2] = merged;
-        if(raw) S.answers[hatKey2+'Raw'] = raw;
-        showLoading('儲存中…');
-        await setDoc(doc(db,'sessions',S.docId),{answers:S.answers, updatedAt:Date.now()},{merge:true});
-        hideLoading();
-        showToast('✅ 已儲存，等待同組完成…');
-        lockNextBtn(openBtn);
-      };
+      } else { sh.style.display = 'none'; }
+
+      const rawData = (hatKey==='white'||hatKey==='yellow') ? S.answers[hatKey+'Raw'] : (S.answers[hatKey]||'');
+      renderAnswerArea(hatKey, rawData);
 
       let anyAnswered = false;
       snap.forEach(d => { if(d.data().answers?.[hatKey]) anyAnswered = true; });
+      const iHaveSaved = !!S.answers[hatKey];
+
       if(anyAnswered) {
+        // 至少一人完成 → 全員解鎖，可繼續
         unlockNextBtn(btn);
         if(statusEl) statusEl.innerHTML = '✅ 已有組員回答，可以進入下一頂帽子';
-      } else {
+      } else if(iHaveSaved) {
+        // 我已儲存但快照尚未同步 → 等待狀態
         lockNextBtn(btn);
+        if(statusEl) statusEl.innerHTML = '<span class="live-dot"></span>等待同組完成…';
+      } else {
+        // 尚無人作答 → 啟用儲存按鈕（不可鎖定！）
+        btn.disabled = false;
+        btn.style.cssText = '';
+        btn.textContent = '儲存，等待同組完成 →';
+        btn.onclick = async () => {
+          const {valid, merged, raw} = gatherAnswers(hatKey);
+          if(!valid){
+            const msg = hatKey==='white' ? '請填寫四個欄位再儲存' : hatKey==='yellow' ? '請填寫兩個欄位再儲存' : '請輸入思考內容再繼續';
+            showToast(msg); return;
+          }
+          S.answers[hatKey] = merged;
+          if(raw) S.answers[hatKey+'Raw'] = raw;
+          showLoading('儲存中…');
+          await setDoc(doc(db,'sessions',S.docId),{answers:S.answers, updatedAt:Date.now()},{merge:true});
+          hideLoading();
+          showToast('✅ 已儲存，等待同組完成…');
+          lockNextBtn(btn);
+        };
         if(statusEl) statusEl.innerHTML = '<span class="live-dot"></span>本組未指定此帽子，開放任何人填寫';
       }
+
     } else {
-      // 有指定擔任者 → 等全部完成
+      // ── 有指定擔任者：等全部完成 ──
+      // 完成條件：本組所有 hats 包含 hatKey 的人，answers[hatKey] 都有內容
       const done = responders.filter(r=>r.answered).length;
       const total = responders.length;
       const iAmResponder = S.hats.includes(hatKey);
       const iHaveSaved = iAmResponder && !!S.answers[hatKey];
 
       if(done >= total) {
+        // 全組完成
         if(!iAmResponder) {
           // 非答題者：自動跳頁，不需要按鈕
           if(statusEl) statusEl.innerHTML = `✅ 全 ${total} 位已完成，自動跳至下一步…`;
@@ -881,8 +893,8 @@ function subscribeHatReadiness(hatKey) {
         // 尚未全部完成
         const waiting = responders.filter(r=>!r.answered).map(r=>`座號${r.seat}`).join('、');
         if(statusEl) statusEl.innerHTML = `<span class="live-dot"></span>等待中：${waiting} 尚未完成`;
-        // 只有「非作答者」或「已儲存的作答者」才鎖定按鈕
-        // 尚未儲存的作答者，按鈕保持可點（讓他能按儲存）
+        // 非答題者、或已儲存的答題者 → 鎖定按鈕
+        // 尚未儲存的答題者 → 按鈕保持可點（讓他能按儲存）
         if(!iAmResponder || iHaveSaved){
           lockNextBtn(btn);
         }
