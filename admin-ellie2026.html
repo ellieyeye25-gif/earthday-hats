@@ -285,7 +285,15 @@ window.doLogout = async () => {
 window.loadData = async () => {
   document.getElementById('table-container').innerHTML =
     '<div class="loading"><div class="spinner"></div><br>載入中…</div>';
-  const snap = await getDocs(collection(db,'sessions'));
+  let snap;
+  try {
+    snap = await getDocs(collection(db,'sessions'));
+  } catch(err) {
+    document.getElementById('table-container').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">⚠️</div><div>載入失敗：${err.message}</div></div>`;
+    console.error('loadData error:', err);
+    return;
+  }
   allData = [];
   snap.forEach(d => allData.push({id: d.id, ...d.data()}));
   allData.sort((a,b) => {
