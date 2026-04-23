@@ -102,8 +102,9 @@ tr:hover td{background:var(--bg)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* GROUP MODAL */
-.group-modal-box{max-width:580px;max-height:84vh;overflow-y:auto}
-.group-members-bar{background:var(--bg);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--ink3);line-height:1.9;margin-bottom:16px}
+.group-modal-box{max-width:600px;max-height:88vh;overflow-y:auto}
+.group-members-bar{background:var(--bg);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--ink3);margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.group-member-tag{display:inline-flex;align-items:center;gap:5px;background:#fff;border-radius:8px;padding:4px 8px;border:1px solid var(--bg2)}
 .group-hat-block{margin-bottom:11px;border-radius:var(--r);overflow:hidden}
 .group-hat-head{padding:9px 14px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px}
 .group-hat-role{font-size:11px;font-weight:400;color:var(--ink3)}
@@ -115,6 +116,14 @@ tr:hover td{background:var(--bg)}
 .group-modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink3);line-height:1;padding:2px}
 .group-modal-close:hover{color:var(--ink)}
 tr.clickable-row{cursor:pointer}
+
+/* ANSWER EDIT MODAL */
+.ans-edit-box{max-width:640px;max-height:90vh;overflow-y:auto}
+textarea.modal-input{font-size:13px;resize:vertical;line-height:1.75;min-height:72px}
+.ae-hat-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin-bottom:7px}
+.ae-action-opt{display:flex;align-items:center;gap:9px;background:var(--bg);border-radius:10px;padding:10px 12px;cursor:pointer;border:2px solid transparent;transition:border-color .18s;margin-bottom:6px}
+.ae-action-opt.selected{border-color:var(--green);background:var(--green-bg)}
+.ae-action-opt input[type=radio]{accent-color:var(--green)}
 </style>
 </head>
 <body>
@@ -239,6 +248,22 @@ tr.clickable-row{cursor:pointer}
   </div>
 </div>
 
+<!-- ANSWER EDIT MODAL -->
+<div class="modal-overlay hidden" id="ans-edit-modal" onclick="if(event.target===this)closeAnsEdit()">
+  <div class="modal-box ans-edit-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="modal-title" id="ans-edit-title" style="margin-bottom:0">✏️ 編輯作答</div>
+      <button class="group-modal-close" onclick="closeAnsEdit()">✕</button>
+    </div>
+    <input type="hidden" id="ans-edit-docid">
+    <div id="ans-edit-body"></div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeAnsEdit()">取消</button>
+      <button class="modal-save" onclick="saveAnsEdit()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, deleteDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
@@ -359,7 +384,6 @@ function renderTable(data){
   }
 
   const rows = data.map(d => {
-    const hats = (d.hats||[]).map(h => `<span class="hat-pill">${HAT_NAMES[h]||h}</span>`).join('');
     const hatIdx = d.hatIdx || 0;
     const dots = HAT_ORDER.map((h,i) => {
       const ans = d.answers?.[h];
@@ -375,13 +399,13 @@ function renderTable(data){
       <td><strong>${d.cls||'—'}</strong></td>
       <td>第${d.group||'—'}組</td>
       <td>${d.seat||'—'}</td>
-      <td><div class="hat-pills">${hats||'—'}</div></td>
       <td><div class="progress-bar">${dots}</div></td>
       <td>${status}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${finalAct}</td>
-      <td>
+      <td style="white-space:nowrap">
         <div class="action-btns">
           <button class="btn-edit" onclick="event.stopPropagation();openEditModal('${d.id}')">修改</button>
+          <button class="btn-edit" style="background:var(--green)" onclick="event.stopPropagation();openAnsEdit('${d.id}')">作答</button>
           <button class="btn-del" onclick="event.stopPropagation();openDelModal('${d.id}','${d.cls}班第${d.group}組座號${d.seat}')">刪除</button>
         </div>
       </td>
@@ -392,7 +416,7 @@ function renderTable(data){
     <table>
       <thead>
         <tr>
-          <th>班級</th><th>組別</th><th>座號</th><th>帽子</th>
+          <th>班級</th><th>組別</th><th>座號</th>
           <th>進度</th><th>狀態</th><th>最終行動</th><th>操作</th>
         </tr>
       </thead>
@@ -487,8 +511,13 @@ window.openGroupModal = (cls, group) => {
 
   // 成員一覽
   let html = `<div class="group-members-bar">
-    <strong style="color:var(--ink)">成員　</strong>
-    ${members.map(m=>`座號${m.seat}（${(m.hats||[]).map(h=>HAT_NAMES[h]).join('、')||'—'}）`).join('　')}
+    <strong style="color:var(--ink);flex-shrink:0">成員</strong>
+    ${members.map(m=>`
+      <span class="group-member-tag">
+        座號${m.seat}
+        <button class="btn-edit" style="font-size:11px;padding:3px 9px;line-height:1.4"
+          onclick="event.stopPropagation();closeGroupModal();openAnsEdit('${m.id}')">✏️ 編輯</button>
+      </span>`).join('')}
   </div>`;
 
   // 白→紅→黃→黑→綠
@@ -532,6 +561,94 @@ window.openGroupModal = (cls, group) => {
 };
 
 window.closeGroupModal = () => document.getElementById('group-modal').classList.add('hidden');
+
+// ── ANSWER EDIT ──
+const AE_HATS = [
+  {key:'white',  emoji:'🤍', name:'白帽'},
+  {key:'red',    emoji:'❤️', name:'紅帽'},
+  {key:'yellow', emoji:'💛', name:'黃帽'},
+  {key:'black',  emoji:'🖤', name:'黑帽'},
+  {key:'green',  emoji:'💚', name:'綠帽'},
+];
+
+window.openAnsEdit = (docId) => {
+  const item = allData.find(d => d.id === docId);
+  if(!item) return;
+  document.getElementById('ans-edit-docid').value = docId;
+  document.getElementById('ans-edit-title').textContent =
+    `✏️ 編輯作答 — ${item.cls}班第${item.group}組座號${item.seat}`;
+
+  let html = '';
+
+  // 白→紅→黃→黑→綠
+  AE_HATS.forEach(h => {
+    const val = item.answers?.[h.key] || '';
+    html += `<div class="modal-field">
+      <label class="ae-hat-label">${h.emoji} ${h.name}</label>
+      <textarea class="modal-input" id="ae-${h.key}" style="min-height:80px">${escHtml(val)}</textarea>
+    </div>`;
+  });
+
+  // 藍帽：finalAction (必選) + finalPlan
+  const actions = item.selectedActions || [];
+  const selectedN = item.finalAction?.n ?? null;
+  html += `<div class="modal-field">
+    <label class="ae-hat-label">💙 藍帽 — 最終選定行動<span style="color:var(--red);margin-left:4px">（必選）</span></label>
+    <div id="ae-action-sel">
+      ${actions.length
+        ? actions.map(a => `
+          <label class="ae-action-opt${a.n===selectedN?' selected':''}">
+            <input type="radio" name="ae-action" value="${a.n}" ${a.n===selectedN?'checked':''}
+              onchange="document.querySelectorAll('.ae-action-opt').forEach(el=>el.classList.remove('selected'));this.closest('.ae-action-opt').classList.add('selected')">
+            <span style="font-size:13px">${a.n}. ${escHtml(a.t)}</span>
+          </label>`).join('')
+        : `<div style="font-size:12px;color:var(--ink3);font-style:italic;padding:6px 0">尚未選擇行動</div>`}
+    </div>
+  </div>
+  <div class="modal-field">
+    <label class="ae-hat-label">💙 藍帽 — 實踐計畫</label>
+    <textarea class="modal-input" id="ae-finalPlan" style="min-height:90px">${escHtml(item.finalPlan||'')}</textarea>
+  </div>`;
+
+  document.getElementById('ans-edit-body').innerHTML = html;
+  document.getElementById('ans-edit-modal').classList.remove('hidden');
+};
+
+window.closeAnsEdit = () => document.getElementById('ans-edit-modal').classList.add('hidden');
+
+window.saveAnsEdit = async () => {
+  const docId = document.getElementById('ans-edit-docid').value;
+  const item = allData.find(d => d.id === docId);
+  if(!item){ showToast('找不到資料'); return; }
+
+  // gather hat answers (omit empty ones)
+  const answers = {};
+  AE_HATS.forEach(h => {
+    const val = document.getElementById(`ae-${h.key}`)?.value.trim() || '';
+    if(val) answers[h.key] = val;
+  });
+
+  // blue hat action
+  const checkedRadio = document.querySelector('input[name="ae-action"]:checked');
+  let finalAction = item.finalAction || null;
+  if(checkedRadio){
+    const n = Number(checkedRadio.value);
+    finalAction = item.selectedActions?.find(a => a.n === n) || finalAction;
+  }
+
+  const finalPlan = document.getElementById('ae-finalPlan')?.value.trim() || '';
+
+  await setDoc(doc(db,'sessions', docId), {
+    answers,
+    finalAction: finalAction || null,
+    finalPlan,
+    updatedAt: Date.now(),
+  }, {merge:true});
+
+  closeAnsEdit();
+  showToast('✅ 作答已更新');
+  await loadData();
+};
 
 // ── UTILS ──
 window.showToast = (msg) => {

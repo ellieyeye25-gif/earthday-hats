@@ -1,0 +1,9 @@
+{
+  "name": "earthday-hats-test",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "firebase": "^12.12.1"
+  }
+}
